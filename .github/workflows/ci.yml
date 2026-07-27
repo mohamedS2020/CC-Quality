@@ -14,10 +14,25 @@ jobs:
     name: Lint, Typecheck & Test
     runs-on: ubuntu-latest
 
-    # A dummy DATABASE_URL so `prisma generate` and PrismaClient construction
-    # succeed. No database is contacted — the tests never open a connection.
+    # The data-access tests (task 2.9) run against a real database, so CI spins
+    # up a Postgres service and applies migrations before the test step.
     env:
-      DATABASE_URL: "postgresql://user:pass@localhost:5432/db?schema=public"
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/cc_quality?schema=public"
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: cc_quality
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Checkout
@@ -34,6 +49,9 @@ jobs:
 
       - name: Generate Prisma client
         run: npx prisma generate
+
+      - name: Apply database migrations
+        run: npx prisma migrate deploy
 
       - name: Lint
         run: npm run lint

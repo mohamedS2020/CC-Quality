@@ -1,6 +1,7 @@
 // Prisma schema — CC-Quality QA Scorecard system.
-// Datasource + generator only for now; domain models are added in task 2.0
-// (Domain Data Model & Persistence Layer). See tasks/tasks-prd-qa-scorecard-system.md.
+// Domain models are being added across task 2.0 (Domain Data Model & Persistence Layer).
+// Convention: camelCase fields in Prisma, snake_case columns/tables via @map/@@map.
+// See tasks/tasks-prd-qa-scorecard-system.md and QA-Scorecard-System-Design.md (Appendix E).
 
 generator client {
   provider = "prisma-client-js"
@@ -9,4 +10,457 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums (behavioural switches the engine dispatches on — NOT domain values).
+// ---------------------------------------------------------------------------
+
+enum ScoringMode {
+  SECTION_BINARY // any error in the section -> section scores 0 for the call (§5.1)
+  GRADED_ATTRIBUTES // accuracy = 1 - failed_units / attributes_per_call (§5.2)
+}
+
+enum LensBasis {
+  PER_ERROR // every individual error counts (Account lens)
+  PER_SCORESHEET // errors per score sheet (Program lens)
+  FAILED_SCORESHEETS // whole failed scorecards (Agent lens)
+}
+
+enum UserRole {
+  ADMIN // all privileges, implicit (FR-6)
+  MODERATOR // privileges granted individually via UserPermission (FR-7/8)
+  AGENT // fixed self-scope; linked to an Agent record (FR-3/9)
+}
+
+enum PeriodType {
+  WEEK
+  MONTH
+  QUARTER
+  ACCUMULATIVE
+}
+
+enum PeriodStatus {
+  OPEN // accepting evaluations
+  SCORING // active scoring
+  REVIEW // under review before lock
+  LOCKED // immutable; corrections are versioned rows (FR-44)
+}
+
+enum NotificationType {
+  SCORE_POSTED // a new evaluation for the agent (FR-39)
+  CORRECTION_POSTED // a versioned correction to an existing evaluation (FR-45)
+}
+
+// ---------------------------------------------------------------------------
+// AGENT dimension (Appendix E.1) — one row per scored agent.
+// `status` (old/new) and `in_trial` are NOT stored: they are DERIVED at read
+// time from `joinDate` vs the configured tenure/trial thresholds (task 7.5).
+// ---------------------------------------------------------------------------
+model Agent {
+  loginId   Int      @id @map("login_id") // "Login ID (Required)" — natural PK from source
+  agentName String   @map("agent_name") // canonical display name (normalized via Data Standard)
+  tlName    String   @map("tl_name") // team leader
+  joinDate  DateTime @map("join_date") @db.Date // hire date
+  active    Boolean  @default(true) // soft-deactivation (FR-11)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  aliases     AgentAlias[]
+  evaluations Evaluation[]
+  user        User? // the Agent's login account (FR-3), if provisioned
+
+  @@index([tlName])
+  @@map("agents")
+}
+
+// Alternate spellings / Arabic→English names (the `Data Standard` alias service, §13).
+model AgentAlias {
+  id      Int    @id @default(autoincrement())
+  alias   String @unique // raw/alternate spelling as it appears in source data
+  agentId Int    @map("agent_id")
+
+  agent Agent @relation(fields: [agentId], references: [loginId], onDelete: Cascade)
+
+  @@index([agentId])
+  @@map("agent_aliases")
+}
+
+// ---------------------------------------------------------------------------
+// CONFIG / RUBRIC TREE (§4, Appendix D/H) — one immutable version per edit.
+// Each ScorecardConfig owns a full copy of its sections/rubric/lenses/benchmarks/
+// dictionary so evaluations stamped with a version stay reproducible (FR-30/31).
+// The engine iterates these rows; it never literal-references a code or number.
+// ---------------------------------------------------------------------------
+model ScorecardConfig {
+  id               Int      @id @default(autoincrement())
+  version          Int      @unique // monotonically increasing; new version per edit
+  name             String
+  description      String?
+  isActive         Boolean  @default(false) // exactly one active version (enforced in task 4.2)
+  roundingDecimals Int      @default(2) @map("rounding_decimals") // published % precision (Appendix H)
+  paretoCutoff     Float    @default(0.8) @map("pareto_cutoff") // 80/20 Pareto cutoff (Appendix H)
+  createdAt        DateTime @default(now()) @map("created_at")
+  createdById      Int?     @map("created_by_id") // author of this config version (FR-45 audit)
+
+  createdBy       User?            @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  sections        Section[]
+  lenses          Lens[]
+  severities      Severity[]
+  trainingBuckets TrainingBucket[]
+  evaluations     Evaluation[]
+
+  @@index([isActive])
+  @@map("scorecard_configs")
+}
+
+// A scoring section (CC / EUC / BC / NC ...). `code`/`label` are data.
+model Section {
+  id              Int         @id @default(autoincrement())
+  configId        Int         @map("config_id")
+  code            String // engine never literal-references this
+  label           String
+  orderIndex      Int         @map("order_index")
+  scoringMode     ScoringMode @map("scoring_mode")
+  critical        Boolean // true => feeds sum_of_criticals & failed-scorecard (Appendix H)
+  capPerAttribute Boolean     @default(false) @map("cap_per_attribute") // graded sections only
+  rankWeight      Float       @map("rank_weight") // rank contribution; weights sum to 100% (validated)
+  rankBenchmark   Float       @map("rank_benchmark") // §5.6 rank benchmark for this section
+
+  config     ScorecardConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+  categories Category[]
+  benchmarks Benchmark[]
+
+  @@unique([configId, code])
+  @@map("sections")
+}
+
+// A category groups attributes under a section (e.g. "Professionalism").
+model Category {
+  id         Int    @id @default(autoincrement())
+  sectionId  Int    @map("section_id")
+  label      String
+  orderIndex Int    @map("order_index")
+
+  section    Section     @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  attributes Attribute[]
+
+  @@unique([sectionId, label])
+  @@map("categories")
+}
+
+// An attribute is the scored unit for graded sections (the 6 NC main attributes).
+// Section-wide "no duplicate attribute name" is enforced in validation (task 4.3).
+model Attribute {
+  id         Int    @id @default(autoincrement())
+  categoryId Int    @map("category_id")
+  label      String
+  orderIndex Int    @map("order_index")
+
+  category     Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  errorReasons ErrorReason[]
+
+  @@unique([categoryId, label])
+  @@map("attributes")
+}
+
+// A leaf error reason (Appendix D). Its attribute -> category -> section chain
+// determines how a flag scores (§5). Labels are NOT globally unique — an
+// evaluation line references a specific ErrorReason row, not free text.
+model ErrorReason {
+  id          Int    @id @default(autoincrement())
+  attributeId Int    @map("attribute_id")
+  label       String
+  orderIndex  Int    @map("order_index")
+
+  attribute       Attribute        @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+  dictionaryEntry DictionaryEntry? // optional §9 metadata for this leaf
+  lines           EvaluationLine[]
+
+  @@unique([attributeId, label])
+  @@map("error_reasons")
+}
+
+// An aggregation lens (Account / Program / Agent) with its own benchmark set (§5.4).
+model Lens {
+  id         Int       @id @default(autoincrement())
+  configId   Int       @map("config_id")
+  key        String // account/program/agent — a label
+  label      String
+  basis      LensBasis
+  orderIndex Int       @map("order_index")
+
+  config     ScorecardConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+  benchmarks Benchmark[]
+
+  @@unique([configId, key])
+  @@map("lenses")
+}
+
+// A benchmark threshold for one (lens, section) pair (§5.4). Validated to [0,1].
+model Benchmark {
+  id        Int   @id @default(autoincrement())
+  lensId    Int   @map("lens_id")
+  sectionId Int   @map("section_id")
+  threshold Float // 0..1
+
+  lens    Lens    @relation(fields: [lensId], references: [id], onDelete: Cascade)
+  section Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@unique([lensId, sectionId])
+  @@map("benchmarks")
+}
+
+// ---------------------------------------------------------------------------
+// ERROR DICTIONARY (§9, the `Update SS` sheet) — definitions, severity,
+// training buckets, and threshold-escalation guidance. Config-scoped so a
+// version's dictionary is reproducible with its rubric.
+// ---------------------------------------------------------------------------
+
+// Editable severity vocabulary (e.g. "Soft Skills", "Business Critical").
+model Severity {
+  id         Int    @id @default(autoincrement())
+  configId   Int    @map("config_id")
+  label      String
+  orderIndex Int    @map("order_index")
+
+  config     ScorecardConfig       @relation(fields: [configId], references: [id], onDelete: Cascade)
+  entries    DictionaryEntry[]
+  thresholds DictionaryThreshold[]
+
+  @@unique([configId, label])
+  @@map("severities")
+}
+
+// Editable training-need vocabulary (e.g. "Telephone etiquette"). Drives chart 9.
+model TrainingBucket {
+  id         Int    @id @default(autoincrement())
+  configId   Int    @map("config_id")
+  label      String
+  orderIndex Int    @map("order_index")
+
+  config     ScorecardConfig       @relation(fields: [configId], references: [id], onDelete: Cascade)
+  entries    DictionaryEntry[]
+  thresholds DictionaryThreshold[]
+
+  @@unique([configId, label])
+  @@map("training_buckets")
+}
+
+// One dictionary row per rubric leaf (optional metadata for an ErrorReason).
+model DictionaryEntry {
+  id               Int     @id @default(autoincrement())
+  errorReasonId    Int     @unique @map("error_reason_id")
+  definition       String? // definition & examples
+  severityId       Int?    @map("severity_id")
+  trainingBucketId Int?    @map("training_bucket_id")
+
+  errorReason    ErrorReason           @relation(fields: [errorReasonId], references: [id], onDelete: Cascade)
+  severity       Severity?             @relation(fields: [severityId], references: [id], onDelete: SetNull)
+  trainingBucket TrainingBucket?       @relation(fields: [trainingBucketId], references: [id], onDelete: SetNull)
+  thresholds     DictionaryThreshold[]
+
+  @@map("dictionary_entries")
+}
+
+// Severity-escalation-by-magnitude rules (§9): the same behaviour changes
+// category by a captured numeric field (e.g. delay 4–10s -> NC, >10s -> BC).
+// `whenExpr` is the (informational) condition; scoring still follows the flagged leaf.
+model DictionaryThreshold {
+  id                Int    @id @default(autoincrement())
+  dictionaryEntryId Int    @map("dictionary_entry_id")
+  whenExpr          String @map("when_expr") // e.g. "4 <= seconds <= 10"
+  severityId        Int?   @map("severity_id")
+  trainingBucketId  Int?   @map("training_bucket_id")
+  orderIndex        Int    @map("order_index")
+
+  dictionaryEntry DictionaryEntry @relation(fields: [dictionaryEntryId], references: [id], onDelete: Cascade)
+  severity        Severity?       @relation(fields: [severityId], references: [id], onDelete: SetNull)
+  trainingBucket  TrainingBucket? @relation(fields: [trainingBucketId], references: [id], onDelete: SetNull)
+
+  @@index([dictionaryEntryId])
+  @@map("dictionary_thresholds")
+}
+
+// ---------------------------------------------------------------------------
+// EVALUATION fact header (Appendix E.2) — one row per monitored/scored call.
+// Stores raw metadata + the config-version STAMP (FR-31) + masked mobile.
+// Section-agnostic derived aggregates (sumOfCriticals, failedScorecard,
+// overallStatus) are written by the engine at save time. Per-section figures
+// (counts/accuracy/status) are computed by the engine from EvaluationLine +
+// the stamped config (§5) — NOT stored as fixed columns, so adding a section
+// needs no schema change (golden rule).
+// ---------------------------------------------------------------------------
+model Evaluation {
+  evalId String @id @default(cuid()) @map("eval_id") // source id on import, else generated
+
+  agentLoginId Int      @map("agent_login_id")
+  configId     Int      @map("config_id") // config VERSION this call was scored under (FR-31)
+  qaOwner      String   @map("qa_owner") // evaluator
+  creationDate DateTime @default(now()) @map("creation_date") // when scored
+  callDate     DateTime @map("call_date") // drives month/week bucketing
+
+  // Optional call metadata (enter-only)
+  callStart       DateTime? @map("call_start") @db.Time(0)
+  callEnd         DateTime? @map("call_end") @db.Time(0)
+  durationSeconds Int?      @map("duration_seconds") // normalized from source fraction-of-day
+  mobileMasked    String?   @map("mobile_masked") // PII — stored masked only (FR-19)
+  callId          String?   @map("call_id") // source call reference
+  queue           String?
+  transactionType String?   @map("transaction_type") // IB/OB (config lookup label)
+  monitoringType  String?   @map("monitoring_type")
+  callType        String?   @map("call_type")
+  coachingDate    DateTime? @map("coaching_date") @db.Date
+
+  // Derived, section-agnostic (written by the engine at save; never entered)
+  sumOfCriticals  Int     @default(0) @map("sum_of_criticals")
+  failedScorecard Boolean @default(false) @map("failed_scorecard")
+  overallStatus   String? @map("overall_status") // Pass/Fail (call-level)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  periodId Int? @map("period_id") // the lockable period this call falls in (assigned at ingestion)
+
+  agent         Agent            @relation(fields: [agentLoginId], references: [loginId])
+  config        ScorecardConfig  @relation(fields: [configId], references: [id])
+  period        Period?          @relation(fields: [periodId], references: [id], onDelete: SetNull)
+  lines         EvaluationLine[]
+  notifications Notification[]
+
+  @@index([agentLoginId])
+  @@index([callDate])
+  @@index([configId])
+  @@index([failedScorecard])
+  @@index([periodId])
+  @@map("evaluations")
+}
+
+// ---------------------------------------------------------------------------
+// EVALUATION_LINE fact detail (Appendix E.3) — one row per flagged error.
+// References a specific ErrorReason leaf; its attribute -> section is DERIVED
+// by traversal (not stored), so a flag scores per §5 under the stamped config.
+// This + Evaluation are the ONLY raw inputs; every figure is computed from them.
+// ---------------------------------------------------------------------------
+model EvaluationLine {
+  id            Int    @id @default(autoincrement())
+  evaluationId  String @map("evaluation_id")
+  errorReasonId Int    @map("error_reason_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  evaluation  Evaluation  @relation(fields: [evaluationId], references: [evalId], onDelete: Cascade)
+  errorReason ErrorReason @relation(fields: [errorReasonId], references: [id])
+
+  @@unique([evaluationId, errorReasonId]) // a reason is flagged at most once per call
+  @@index([errorReasonId])
+  @@map("evaluation_lines")
+}
+
+// ---------------------------------------------------------------------------
+// RBAC (FR-2/6/7/8/9) — three user types; Moderator privileges are granular.
+// Admin = all permissions implicitly; Agent = fixed self-scope; Moderator =
+// exactly the permissions granted via UserPermission. Enforced server-side
+// (task 3.x); this schema stores identities, grants, and the Agent link (FR-3).
+// ---------------------------------------------------------------------------
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String
+  role         UserRole
+  active       Boolean  @default(true)
+  agentLoginId Int?     @unique @map("agent_login_id") // set only for AGENT users (FR-3)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  agent           Agent?            @relation(fields: [agentLoginId], references: [loginId], onDelete: SetNull)
+  permissions     UserPermission[]
+  createdConfigs  ScorecardConfig[]
+  lockedPeriods   Period[]          @relation("PeriodLockedBy")
+  reopenedPeriods Period[]          @relation("PeriodReopenedBy")
+  notifications   Notification[]
+
+  @@index([role])
+  @@map("users")
+}
+
+// The permission catalog (FR-7). Rows are seeded from the code catalog (task 3.3).
+model Permission {
+  id          Int     @id @default(autoincrement())
+  key         String  @unique // e.g. "evaluations.create"
+  label       String
+  description String?
+
+  users UserPermission[]
+
+  @@map("permissions")
+}
+
+// A permission granted to a user (primarily Moderators; the FR-8 toggles).
+model UserPermission {
+  id           Int      @id @default(autoincrement())
+  userId       Int      @map("user_id")
+  permissionId Int      @map("permission_id")
+  grantedAt    DateTime @default(now()) @map("granted_at")
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, permissionId])
+  @@index([permissionId])
+  @@map("user_permissions")
+}
+
+// ---------------------------------------------------------------------------
+// PERIOD (§8, FR-44/6.7) — a lockable time window. Evaluations belong to one
+// (typically the operational MONTH); weekly/quarterly/accumulative views are
+// derived from callDate. Locking makes a period's evaluations immutable;
+// corrections become new versioned rows (task 6.8).
+// ---------------------------------------------------------------------------
+model Period {
+  id        Int          @id @default(autoincrement())
+  type      PeriodType
+  label     String // e.g. "2025-07", "2025-Q3", "2025-W27"
+  startDate DateTime     @map("start_date") @db.Date
+  endDate   DateTime     @map("end_date") @db.Date
+  status    PeriodStatus @default(OPEN)
+
+  lockedAt     DateTime? @map("locked_at")
+  lockedById   Int?      @map("locked_by_id")
+  reopenedAt   DateTime? @map("reopened_at")
+  reopenedById Int?      @map("reopened_by_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  lockedBy    User?        @relation("PeriodLockedBy", fields: [lockedById], references: [id], onDelete: SetNull)
+  reopenedBy  User?        @relation("PeriodReopenedBy", fields: [reopenedById], references: [id], onDelete: SetNull)
+  evaluations Evaluation[]
+
+  @@unique([type, label])
+  @@index([status])
+  @@map("periods")
+}
+
+// ---------------------------------------------------------------------------
+// NOTIFICATION (FR-39/40/41) — in-app alert to an agent when their call is
+// scored or corrected. `readAt` null = unread; links to the scored call.
+// ---------------------------------------------------------------------------
+model Notification {
+  id           Int              @id @default(autoincrement())
+  userId       Int              @map("user_id")
+  type         NotificationType
+  evaluationId String?          @map("evaluation_id")
+  message      String
+  readAt       DateTime?        @map("read_at")
+  createdAt    DateTime         @default(now()) @map("created_at")
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  evaluation Evaluation? @relation(fields: [evaluationId], references: [evalId], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@map("notifications")
 }
