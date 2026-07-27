@@ -1,0 +1,3 @@
+# Calculation engine: scoring modes, lenses, rank, analytics (tasks 5.x).
+# GOLDEN RULE: no section codes ("CC"/"NC"), benchmarks (0.95), or counts (6) in here.
+# Every domain value is read from config or derived. Enforced by hardcode-guard.test.ts.
