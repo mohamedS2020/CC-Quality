@@ -6,3 +6,4 @@
  * added as features land (config, evaluation, user, period, ...).
  */
 export { agentRepository } from "./agentRepository";
+export { userRepository } from "./userRepository";

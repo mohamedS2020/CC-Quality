@@ -19,10 +19,12 @@
     "db:reset": "prisma migrate reset"
   },
   "dependencies": {
+    "@node-rs/argon2": "^2.0.2",
     "@prisma/client": "^6.19.3",
     "next": "^15.1.6",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.1",

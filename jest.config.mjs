@@ -14,6 +14,8 @@ const config = {
   moduleNameMapper: {
     // Mirror the tsconfig "@/*" -> "src/*" path alias for Jest.
     "^@/(.*)$": "<rootDir>/src/$1",
+    // Stub `server-only` so server modules can be imported in unit tests.
+    "^server-only$": "<rootDir>/test-support/empty-module.js",
   },
   testPathIgnorePatterns: ["<rootDir>/node_modules/", "<rootDir>/.next/"],
 };

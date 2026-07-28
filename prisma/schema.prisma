@@ -382,6 +382,7 @@ model User {
   lockedPeriods   Period[]          @relation("PeriodLockedBy")
   reopenedPeriods Period[]          @relation("PeriodReopenedBy")
   notifications   Notification[]
+  sessions        Session[]
 
   @@index([role])
   @@map("users")
@@ -463,4 +464,24 @@ model Notification {
 
   @@index([userId, readAt])
   @@map("notifications")
+}
+
+// ---------------------------------------------------------------------------
+// SESSION (FR-4/5) — DB-backed auth sessions with sliding inactivity expiry.
+// The cookie carries a raw random token; `id` is its SHA-256 hash, so a DB
+// leak never yields usable tokens. `expiresAt` is the sliding idle deadline;
+// it is extended on activity and deleting the row logs the user out.
+// ---------------------------------------------------------------------------
+model Session {
+  id             String   @id // sha256(rawToken) hex
+  userId         Int      @map("user_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  lastActivityAt DateTime @default(now()) @map("last_activity_at")
+  expiresAt      DateTime @map("expires_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
 }

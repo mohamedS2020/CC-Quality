@@ -1,4 +1,8 @@
 import { PrismaClient } from "@prisma/client";
+// Imported from the modules directly (not "@/lib/auth") so this standalone
+// script never pulls in the server-only auth barrel.
+import { hashPassword } from "../src/lib/auth/password";
+import { PERMISSIONS } from "../src/lib/auth/permissions";
 
 const prisma = new PrismaClient();
 
@@ -43,9 +47,56 @@ async function seedDemoAgents(): Promise<number> {
   return demoAgents.length;
 }
 
+/**
+ * Bootstrap admin (FR-1: no public self-registration — the first account must
+ * be seeded). Idempotent: an existing admin is left untouched (we never reset a
+ * real password on re-seed). Credentials are dev defaults; override with
+ * SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD, and change them in any real deploy.
+ */
+async function seedAdminUser(): Promise<{ email: string; created: boolean }> {
+  const email = (process.env.SEED_ADMIN_EMAIL ?? "admin@cc-quality.local").toLowerCase();
+  const password = process.env.SEED_ADMIN_PASSWORD ?? "ChangeMe123!";
+
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) return { email, created: false };
+
+  await prisma.user.create({
+    data: {
+      email,
+      name: "Bootstrap Admin",
+      role: "ADMIN",
+      passwordHash: await hashPassword(password),
+    },
+  });
+  return { email, created: true };
+}
+
+/** Seed the permission catalog (FR-7) into the Permission table. Idempotent. */
+async function seedPermissions(): Promise<number> {
+  for (const permission of PERMISSIONS) {
+    await prisma.permission.upsert({
+      where: { key: permission.key },
+      update: { label: permission.label, description: permission.description },
+      create: {
+        key: permission.key,
+        label: permission.label,
+        description: permission.description,
+      },
+    });
+  }
+  return PERMISSIONS.length;
+}
+
 async function main() {
   const agents = await seedDemoAgents();
-  console.log(`✔ Seed complete — ${agents} demo agents upserted.`);
+  const permissions = await seedPermissions();
+  const admin = await seedAdminUser();
+  console.log(`✔ Seed complete — ${agents} demo agents, ${permissions} permissions upserted.`);
+  console.log(
+    admin.created
+      ? `✔ Bootstrap admin created: ${admin.email} (dev password "ChangeMe123!" — change it).`
+      : `• Admin ${admin.email} already exists — left unchanged.`,
+  );
 }
 
 main()
