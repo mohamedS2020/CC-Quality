@@ -7,3 +7,4 @@
  */
 export { agentRepository } from "./agentRepository";
 export { userRepository } from "./userRepository";
+export { configRepository, type RawFullConfig } from "./configRepository";

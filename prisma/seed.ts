@@ -3,6 +3,8 @@ import { PrismaClient } from "@prisma/client";
 // script never pulls in the server-only auth barrel.
 import { hashPassword } from "../src/lib/auth/password";
 import { PERMISSIONS } from "../src/lib/auth/permissions";
+import { baselineConfigInput } from "../src/lib/config/baseline";
+import { createConfigVersion } from "../src/lib/config/versioning";
 
 const prisma = new PrismaClient();
 
@@ -87,11 +89,27 @@ async function seedPermissions(): Promise<number> {
   return PERMISSIONS.length;
 }
 
+/**
+ * Seed the verified baseline config as version 1 (FR-28). Idempotent: skipped if
+ * any config version already exists, so it never overwrites edited config.
+ */
+async function seedBaselineConfig(): Promise<{ created: boolean; version?: number }> {
+  if ((await prisma.scorecardConfig.count()) > 0) return { created: false };
+  const { version } = await createConfigVersion(baselineConfigInput, { activate: true });
+  return { created: true, version };
+}
+
 async function main() {
   const agents = await seedDemoAgents();
   const permissions = await seedPermissions();
   const admin = await seedAdminUser();
+  const config = await seedBaselineConfig();
   console.log(`✔ Seed complete — ${agents} demo agents, ${permissions} permissions upserted.`);
+  console.log(
+    config.created
+      ? `✔ Baseline config seeded as version ${config.version} (active).`
+      : "• Config already present — baseline left unchanged.",
+  );
   console.log(
     admin.created
       ? `✔ Bootstrap admin created: ${admin.email} (dev password "ChangeMe123!" — change it).`
