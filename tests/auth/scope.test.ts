@@ -11,7 +11,6 @@ const AGENT_1 = 810001;
 const AGENT_2 = 810002;
 const CONFIG_VERSION = 8101;
 const RANGE = { gte: 810000, lt: 810100 };
-const VERSION_RANGE = { gte: 8100, lt: 8200 };
 
 function ctx(role: UserRole, agentLoginId: number | null = null): AuthContext {
   const user: PublicUser = {
@@ -29,7 +28,7 @@ function ctx(role: UserRole, agentLoginId: number | null = null): AuthContext {
 
 async function cleanup() {
   await prisma.evaluation.deleteMany({ where: { agentLoginId: RANGE } });
-  await prisma.scorecardConfig.deleteMany({ where: { version: VERSION_RANGE } });
+  await prisma.scorecardConfig.deleteMany({ where: { version: CONFIG_VERSION } });
   await prisma.agent.deleteMany({ where: { loginId: RANGE } });
 }
 

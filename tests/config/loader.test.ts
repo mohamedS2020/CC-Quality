@@ -10,10 +10,9 @@ import { prisma } from "@/lib/db/client";
 import { loadConfigById, loadConfigByVersion } from "@/lib/config/loader";
 
 const VERSION = 8301;
-const VERSION_RANGE = { gte: 8300, lt: 8400 };
 
 async function cleanup() {
-  await prisma.scorecardConfig.deleteMany({ where: { version: VERSION_RANGE } });
+  await prisma.scorecardConfig.deleteMany({ where: { version: VERSION } });
 }
 
 beforeAll(cleanup);

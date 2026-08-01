@@ -24,13 +24,12 @@ const CONFIG_VERSION = 8001;
 const MISSING_REASON_ID = 999_000_001;
 
 const RANGE = { gte: 800000, lt: 800100 };
-const VERSION_RANGE = { gte: 8000, lt: 8100 };
 
 async function cleanup() {
   // Order matters: Evaluation -> Config/Agent are Restrict (no cascade), so
   // delete evaluations (which cascade their lines) before their parents.
   await prisma.evaluation.deleteMany({ where: { agentLoginId: RANGE } });
-  await prisma.scorecardConfig.deleteMany({ where: { version: VERSION_RANGE } });
+  await prisma.scorecardConfig.deleteMany({ where: { version: CONFIG_VERSION } });
   await prisma.agent.deleteMany({ where: { loginId: RANGE } });
 }
 
