@@ -49,25 +49,6 @@ const TEXT_FIELDS: { key: keyof MetaState; label: string; type: string }[] = [
   { key: "coachingDate", label: "Coaching date", type: "date" },
 ];
 
-export const input: React.CSSProperties = {
-  padding: "0.4rem 0.5rem",
-  borderRadius: 6,
-  border: "1px solid var(--border, #ccc)",
-  background: "var(--background, #fff)",
-  color: "inherit",
-};
-export const field: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "0.2rem",
-  minWidth: 160,
-};
-export const box: React.CSSProperties = {
-  border: "1px solid var(--border, #ccc)",
-  borderRadius: 8,
-  padding: "1rem",
-};
-
 /** Turn the controlled metadata into the enter-only fields the services accept. */
 export function metaToFields(meta: MetaState) {
   return {
@@ -90,6 +71,12 @@ export function metaToFields(meta: MetaState) {
 export function metaIsComplete(meta: MetaState): boolean {
   return meta.agentLoginId !== "" && meta.callDate !== "" && meta.qaOwner.trim() !== "";
 }
+
+const fieldsGrid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+  gap: "0.9rem",
+};
 
 export function ScoreSheetFields({
   rubric,
@@ -120,13 +107,13 @@ export function ScoreSheetFields({
 
   return (
     <>
-      <section style={box}>
-        <h2 style={{ fontSize: "1.15rem", marginTop: 0 }}>Call details</h2>
-        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-          <label style={field}>
+      <section className="card">
+        <h2 style={{ fontSize: "1.1rem", marginTop: 0, marginBottom: "0.9rem" }}>Call details</h2>
+        <div style={fieldsGrid}>
+          <label className="field">
             <span>Agent *</span>
             <select
-              style={input}
+              className="select"
               aria-label="agent"
               value={meta.agentLoginId}
               onChange={(e) => setField("agentLoginId", e.target.value)}
@@ -139,19 +126,19 @@ export function ScoreSheetFields({
               ))}
             </select>
           </label>
-          <label style={field}>
+          <label className="field">
             <span>QA owner *</span>
             <input
-              style={input}
+              className="input"
               aria-label="qaOwner"
               value={meta.qaOwner}
               onChange={(e) => setField("qaOwner", e.target.value)}
             />
           </label>
-          <label style={field}>
+          <label className="field">
             <span>Transaction type</span>
             <select
-              style={input}
+              className="select"
               aria-label="transactionType"
               value={meta.transactionType}
               onChange={(e) => setField("transactionType", e.target.value)}
@@ -162,10 +149,10 @@ export function ScoreSheetFields({
             </select>
           </label>
           {TEXT_FIELDS.map((f) => (
-            <label key={f.key} style={field}>
+            <label key={f.key} className="field">
               <span>{f.label}</span>
               <input
-                style={input}
+                className="input"
                 type={f.type}
                 aria-label={f.key}
                 value={meta[f.key]}
@@ -176,17 +163,22 @@ export function ScoreSheetFields({
         </div>
       </section>
 
-      <section style={{ display: "grid", gap: "0.75rem" }}>
-        <h2 style={{ fontSize: "1.15rem", margin: 0 }}>Errors</h2>
+      <section style={{ display: "grid", gap: "0.85rem" }}>
+        <h2 style={{ fontSize: "1.1rem", margin: 0 }}>Errors</h2>
         {rubric.sections.map((s) => (
-          <fieldset key={s.id} style={box} data-testid="score-section">
-            <legend style={{ fontWeight: 600 }}>
+          <fieldset
+            key={s.id}
+            className="card"
+            data-testid="score-section"
+            style={{ border: "1px solid var(--border)" }}
+          >
+            <legend style={{ fontWeight: 600, padding: "0 0.4rem" }}>
               {s.code} — {s.label} ·{" "}
               <span data-testid={`section-${s.id}-count`}>{countBySection.get(s.id) ?? 0}</span>{" "}
               flagged
             </legend>
             {s.categories.map((c) => (
-              <div key={c.id} style={{ margin: "0.5rem 0 0.5rem 0.5rem" }}>
+              <div key={c.id} style={{ margin: "0.5rem 0 0.5rem 0.25rem" }}>
                 <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>{c.label}</div>
                 {c.attributes.map((a) => (
                   <div key={a.id} style={{ margin: "0.35rem 0 0.35rem 0.75rem" }}>
@@ -200,9 +192,10 @@ export function ScoreSheetFields({
                         key={r.id}
                         style={{
                           display: "flex",
-                          gap: "0.4rem",
+                          gap: "0.5rem",
                           alignItems: "center",
                           marginLeft: "0.75rem",
+                          padding: "0.15rem 0",
                         }}
                       >
                         <input

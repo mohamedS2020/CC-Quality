@@ -8,7 +8,6 @@ import { ResetPasswordForm } from "../reset-password-form";
 
 export const dynamic = "force-dynamic";
 
-const shell: React.CSSProperties = { maxWidth: 720, margin: "0 auto", padding: "2.5rem 1.5rem" };
 const hr: React.CSSProperties = {
   border: 0,
   borderTop: "1px solid var(--border)",
@@ -22,9 +21,9 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
 
   if (!ctx.permissions.has("users.manage")) {
     return (
-      <main style={shell}>
-        <h1 style={{ fontSize: "1.4rem" }}>403 — Forbidden</h1>
-        <p style={{ color: "var(--muted)" }}>You need the “Manage users” permission.</p>
+      <main className="page page-narrow">
+        <h1 className="page-title">403 — Forbidden</h1>
+        <p className="page-sub">You need the “Manage users” permission.</p>
       </main>
     );
   }
@@ -39,12 +38,16 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
   ]);
 
   return (
-    <main style={shell}>
-      <Link href="/admin/users" style={{ color: "var(--accent, #2563eb)", fontSize: "0.9rem" }}>
+    <main className="page page-narrow">
+      <Link href="/admin/users" style={{ fontSize: "0.9rem" }}>
         ← All users
       </Link>
-      <h1 style={{ fontSize: "1.5rem", margin: "0.75rem 0 0.25rem" }}>{user.name}</h1>
-      <p style={{ color: "var(--muted)", marginBottom: "1.25rem" }}>{user.email}</p>
+      <h1 className="page-title" style={{ margin: "0.75rem 0 0.25rem" }}>
+        {user.name}
+      </h1>
+      <p className="page-sub" style={{ marginBottom: "1.25rem" }}>
+        {user.email}
+      </p>
 
       <UserForm
         mode="edit"

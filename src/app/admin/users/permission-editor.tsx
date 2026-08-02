@@ -63,19 +63,7 @@ export function PermissionEditor({
         ))}
       </div>
       <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
-        <button
-          type="button"
-          onClick={save}
-          disabled={pending}
-          style={{
-            padding: "0.45rem 0.9rem",
-            borderRadius: 6,
-            border: "1px solid var(--border, #ccc)",
-            background: "transparent",
-            color: "inherit",
-            cursor: pending ? "default" : "pointer",
-          }}
-        >
+        <button type="button" className="btn btn-ghost" onClick={save} disabled={pending}>
           {pending ? "Saving…" : "Save permissions"}
         </button>
         {saved && <span style={{ color: "var(--success, #2e7d32)" }}>Saved.</span>}

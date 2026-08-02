@@ -11,16 +11,6 @@ const ROLES: { value: UserRole; label: string }[] = [
   { value: "AGENT", label: "Agent" },
 ];
 
-const input: React.CSSProperties = {
-  padding: "0.4rem 0.5rem",
-  borderRadius: 6,
-  border: "1px solid var(--border, #ccc)",
-  background: "var(--background, #fff)",
-  color: "inherit",
-  minWidth: 220,
-};
-const field: React.CSSProperties = { display: "flex", flexDirection: "column", gap: "0.2rem" };
-
 export interface UserFormInitial {
   email: string;
   name: string;
@@ -81,11 +71,11 @@ export function UserForm({
   };
 
   return (
-    <section style={{ display: "grid", gap: "0.9rem", maxWidth: 480 }}>
-      <label style={field}>
+    <section style={{ display: "grid", gap: "0.9rem", maxWidth: 460 }}>
+      <label className="field">
         <span>Email {mode === "create" ? "*" : ""}</span>
         <input
-          style={input}
+          className="input"
           type="email"
           aria-label="email"
           value={email}
@@ -94,20 +84,20 @@ export function UserForm({
         />
       </label>
 
-      <label style={field}>
+      <label className="field">
         <span>Name *</span>
         <input
-          style={input}
+          className="input"
           aria-label="name"
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
       </label>
 
-      <label style={field}>
+      <label className="field">
         <span>Role *</span>
         <select
-          style={input}
+          className="select"
           aria-label="role"
           value={role}
           onChange={(e) => setRole(e.target.value as UserRole)}
@@ -121,10 +111,10 @@ export function UserForm({
       </label>
 
       {needsAgent && (
-        <label style={field}>
+        <label className="field">
           <span>Linked agent *</span>
           <select
-            style={input}
+            className="select"
             aria-label="agentLoginId"
             value={agentLoginId}
             onChange={(e) => setAgentLoginId(e.target.value)}
@@ -140,10 +130,10 @@ export function UserForm({
       )}
 
       {mode === "create" && (
-        <label style={field}>
+        <label className="field">
           <span>Initial password *</span>
           <input
-            style={input}
+            className="input"
             type="password"
             aria-label="password"
             value={password}
@@ -167,22 +157,14 @@ export function UserForm({
       <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
         <button
           type="button"
+          className="btn btn-primary"
           onClick={submit}
           disabled={!canSubmit || pending}
-          style={{
-            padding: "0.5rem 1rem",
-            borderRadius: 6,
-            border: "none",
-            background: "var(--accent, #2563eb)",
-            color: "#fff",
-            cursor: !canSubmit || pending ? "not-allowed" : "pointer",
-            opacity: !canSubmit || pending ? 0.6 : 1,
-          }}
         >
           {pending ? "Saving…" : mode === "create" ? "Create user" : "Save changes"}
         </button>
         {error && (
-          <span style={{ color: "var(--danger, #c0392b)" }} role="alert">
+          <span style={{ color: "var(--danger)" }} role="alert">
             {error}
           </span>
         )}

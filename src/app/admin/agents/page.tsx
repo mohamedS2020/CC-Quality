@@ -7,12 +7,6 @@ import { agentRepository } from "@/lib/db/repositories";
 
 export const dynamic = "force-dynamic";
 
-const shell: React.CSSProperties = { maxWidth: 1050, margin: "0 auto", padding: "2.5rem 1.5rem" };
-const cell: React.CSSProperties = {
-  padding: "0.6rem 0.5rem",
-  borderBottom: "1px solid var(--border)",
-};
-
 function ymd(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
@@ -23,9 +17,9 @@ export default async function AgentsPage() {
 
   if (!ctx.permissions.has("agents.manage")) {
     return (
-      <main style={shell}>
-        <h1 style={{ fontSize: "1.4rem" }}>403 — Forbidden</h1>
-        <p style={{ color: "var(--muted)" }}>You need the “Manage agents” permission.</p>
+      <main className="page page-narrow">
+        <h1 className="page-title">403 — Forbidden</h1>
+        <p className="page-sub">You need the “Manage agents” permission.</p>
       </main>
     );
   }
@@ -33,70 +27,84 @@ export default async function AgentsPage() {
   const [agents, config] = await Promise.all([agentRepository.list(), loadActiveConfig()]);
 
   return (
-    <main style={shell}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <h1 style={{ fontSize: "1.5rem" }}>Agents</h1>
-        <Link href="/admin/agents/new" style={{ color: "var(--accent, #2563eb)" }}>
+    <main className="page">
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "baseline",
+          gap: "1rem",
+        }}
+      >
+        <div>
+          <h1 className="page-title">Agents</h1>
+          <p className="page-sub">
+            Tenure and trial are derived from join date
+            {config
+              ? ` (new < ${config.newAgentTenureDays}d, trial < ${config.trialWindowDays}d).`
+              : "."}
+          </p>
+        </div>
+        <Link href="/admin/agents/new" className="btn btn-primary">
           + New agent
         </Link>
       </div>
-      <p style={{ color: "var(--muted)", marginBottom: "1.5rem" }}>
-        The agent dimension. Tenure status (new/old) and trial are derived from join date against
-        the active configuration&rsquo;s thresholds
-        {config
-          ? ` (new < ${config.newAgentTenureDays}d, trial < ${config.trialWindowDays}d).`
-          : " — no active configuration, so they cannot be derived."}
-      </p>
 
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
-        <thead>
-          <tr style={{ textAlign: "left", color: "var(--muted)" }}>
-            <th style={cell}>Login ID</th>
-            <th style={cell}>Agent</th>
-            <th style={cell}>Team leader</th>
-            <th style={cell}>Join date</th>
-            <th style={cell}>Tenure</th>
-            <th style={cell}>Trial</th>
-            <th style={cell}>Status</th>
-            <th style={cell}></th>
-          </tr>
-        </thead>
-        <tbody>
-          {agents.map((a) => {
-            const standing = config ? deriveAgentStanding(a.joinDate, config) : null;
-            return (
-              <tr key={a.loginId}>
-                <td style={cell}>{a.loginId}</td>
-                <td style={cell}>{a.agentName}</td>
-                <td style={cell}>{a.tlName}</td>
-                <td style={cell}>{ymd(a.joinDate)}</td>
-                <td style={cell}>
-                  {standing ? (
-                    <>
-                      {standing.status}{" "}
-                      <span style={{ color: "var(--muted)" }}>({standing.tenureDays}d)</span>
-                    </>
-                  ) : (
-                    "—"
-                  )}
-                </td>
-                <td style={cell}>{standing ? (standing.inTrial ? "In trial" : "—") : "—"}</td>
-                <td style={cell}>
-                  {a.active ? "Active" : <span style={{ color: "var(--muted)" }}>Inactive</span>}
-                </td>
-                <td style={cell}>
-                  <Link
-                    href={`/admin/agents/${a.loginId}`}
-                    style={{ color: "var(--accent, #2563eb)" }}
-                  >
-                    Edit
-                  </Link>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      <div className="card" style={{ marginTop: "1.5rem", padding: "0.5rem 0.75rem" }}>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Login ID</th>
+              <th>Agent</th>
+              <th>Team leader</th>
+              <th>Join date</th>
+              <th>Tenure</th>
+              <th>Trial</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {agents.map((a) => {
+              const standing = config ? deriveAgentStanding(a.joinDate, config) : null;
+              return (
+                <tr key={a.loginId}>
+                  <td style={{ fontVariantNumeric: "tabular-nums" }}>{a.loginId}</td>
+                  <td>{a.agentName}</td>
+                  <td className="muted">{a.tlName}</td>
+                  <td style={{ fontVariantNumeric: "tabular-nums" }}>{ymd(a.joinDate)}</td>
+                  <td>
+                    {standing ? (
+                      <>
+                        {standing.status} <span className="muted">({standing.tenureDays}d)</span>
+                      </>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td>
+                    {standing?.inTrial ? (
+                      <span className="badge badge-warning">In trial</span>
+                    ) : (
+                      <span className="muted">—</span>
+                    )}
+                  </td>
+                  <td>
+                    {a.active ? (
+                      <span className="badge badge-success">Active</span>
+                    ) : (
+                      <span className="badge">Inactive</span>
+                    )}
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    <Link href={`/admin/agents/${a.loginId}`}>Edit →</Link>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </main>
   );
 }

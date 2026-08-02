@@ -7,13 +7,6 @@ import { displayMobile } from "@/lib/pii";
 
 export const dynamic = "force-dynamic";
 
-const shell: React.CSSProperties = { maxWidth: 900, margin: "0 auto", padding: "2.5rem 1.5rem" };
-const card: React.CSSProperties = {
-  border: "1px solid var(--border, #ccc)",
-  borderRadius: 8,
-  padding: "1rem 1.25rem",
-};
-
 function fmtDate(d: Date | null): string {
   return d ? d.toISOString().slice(0, 10) : "—";
 }
@@ -21,25 +14,28 @@ function fmtDateTime(d: Date | null): string {
   return d ? d.toISOString().slice(0, 16).replace("T", " ") : "—";
 }
 
-function resultStyle(failed: boolean): React.CSSProperties {
-  return { color: failed ? "var(--danger, #b91c1c)" : "var(--success, #2e7d32)", fontWeight: 600 };
+function StatusBadge({ failed, label }: { failed: boolean; label: string }) {
+  return <span className={failed ? "badge badge-danger" : "badge badge-success"}>{label}</span>;
 }
 
 function VersionCard({ v, isCurrent }: { v: EvaluationVersion; isCurrent: boolean }) {
   return (
-    <li
-      style={{ ...card, borderColor: isCurrent ? "var(--accent, #2563eb)" : "var(--border, #ccc)" }}
-    >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+    <li className="card" style={{ borderColor: isCurrent ? "var(--accent)" : "var(--border)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <strong>
           v{v.version}
-          {isCurrent && <span style={{ color: "var(--accent, #2563eb)" }}> · current</span>}
+          {isCurrent && (
+            <span className="badge badge-accent" style={{ marginLeft: "0.5rem" }}>
+              current
+            </span>
+          )}
         </strong>
-        <span style={resultStyle(v.failedScorecard)}>
-          {v.overallStatus ?? (v.failedScorecard ? "Fail" : "Pass")}
-        </span>
+        <StatusBadge
+          failed={v.failedScorecard}
+          label={v.overallStatus ?? (v.failedScorecard ? "Fail" : "Pass")}
+        />
       </div>
-      <div style={{ color: "var(--muted)", fontSize: "0.85rem", marginTop: "0.25rem" }}>
+      <div className="muted" style={{ fontSize: "0.85rem", marginTop: "0.4rem" }}>
         {v.version === 1 ? (
           <>
             Scored by {v.qaOwner} · {fmtDateTime(v.creationDate)}
@@ -51,17 +47,17 @@ function VersionCard({ v, isCurrent }: { v: EvaluationVersion; isCurrent: boolea
           </>
         )}
       </div>
-      <div style={{ marginTop: "0.5rem", fontSize: "0.9rem" }}>
+      <div style={{ marginTop: "0.6rem", fontSize: "0.9rem" }}>
         {v.lines.length === 0 ? (
-          <span style={{ color: "var(--muted)" }}>No errors flagged.</span>
+          <span className="muted">No errors flagged.</span>
         ) : (
           <ul style={{ margin: 0, paddingLeft: "1.1rem" }}>
             {v.lines.map((line) => {
               const attr = line.errorReason.attribute;
               return (
                 <li key={line.id}>
-                  <span style={{ color: "var(--muted)" }}>{attr.category.section.code}</span> —{" "}
-                  {attr.label}: {line.errorReason.label}
+                  <span className="muted">{attr.category.section.code}</span> — {attr.label}:{" "}
+                  {line.errorReason.label}
                 </li>
               );
             })}
@@ -83,9 +79,9 @@ export default async function EvaluationDetailPage({
 
   if (!ctx.permissions.has("evaluations.view")) {
     return (
-      <main style={shell}>
-        <h1 style={{ fontSize: "1.4rem" }}>403 — Forbidden</h1>
-        <p style={{ color: "var(--muted)" }}>You need the “View evaluations” permission.</p>
+      <main className="page page-narrow">
+        <h1 className="page-title">403 — Forbidden</h1>
+        <p className="page-sub">You need the “View evaluations” permission.</p>
       </main>
     );
   }
@@ -100,8 +96,8 @@ export default async function EvaluationDetailPage({
   if (scope.kind === "self" && current.agentLoginId !== scope.loginId) notFound();
 
   return (
-    <main style={shell}>
-      <Link href="/evaluations" style={{ color: "var(--accent, #2563eb)", fontSize: "0.9rem" }}>
+    <main className="page page-narrow">
+      <Link href="/evaluations" style={{ fontSize: "0.9rem" }}>
         ← All evaluations
       </Link>
 
@@ -109,16 +105,18 @@ export default async function EvaluationDetailPage({
         style={{
           display: "flex",
           justifyContent: "space-between",
-          alignItems: "baseline",
-          marginTop: "0.75rem",
+          alignItems: "center",
+          marginTop: "0.85rem",
+          gap: "1rem",
         }}
       >
-        <h1 style={{ fontSize: "1.5rem", margin: 0 }}>{current.agent.agentName}</h1>
-        <span style={resultStyle(current.failedScorecard)}>
-          {current.overallStatus ?? (current.failedScorecard ? "Fail" : "Pass")}
-        </span>
+        <h1 className="page-title">{current.agent.agentName}</h1>
+        <StatusBadge
+          failed={current.failedScorecard}
+          label={current.overallStatus ?? (current.failedScorecard ? "Fail" : "Pass")}
+        />
       </div>
-      <p style={{ color: "var(--muted)", marginTop: "0.25rem" }}>
+      <p className="page-sub">
         Call {fmtDate(current.callDate)} · Mobile {displayMobile(current.mobileMasked)} · Sum of
         criticals {current.sumOfCriticals}
       </p>
@@ -126,24 +124,28 @@ export default async function EvaluationDetailPage({
       {ctx.permissions.has("evaluations.edit") && (
         <Link
           href={`/evaluations/${current.evalId}/correct`}
-          style={{
-            display: "inline-block",
-            marginTop: "0.5rem",
-            padding: "0.45rem 0.9rem",
-            borderRadius: 6,
-            border: "1px solid var(--border, #ccc)",
-            color: "inherit",
-          }}
+          className="btn btn-ghost"
+          style={{ marginTop: "0.85rem" }}
         >
           Post a correction
         </Link>
       )}
 
-      <h2 style={{ fontSize: "1.15rem", marginTop: "1.75rem" }}>
+      <h2 style={{ fontSize: "1.15rem", marginTop: "1.85rem" }}>
         Version history{" "}
-        <span style={{ color: "var(--muted)", fontWeight: 400 }}>(audit trail)</span>
+        <span className="muted" style={{ fontWeight: 400 }}>
+          (audit trail)
+        </span>
       </h2>
-      <ol style={{ listStyle: "none", padding: 0, display: "grid", gap: "0.75rem" }}>
+      <ol
+        style={{
+          listStyle: "none",
+          padding: 0,
+          display: "grid",
+          gap: "0.75rem",
+          marginTop: "0.75rem",
+        }}
+      >
         {[...history].reverse().map((v) => (
           <VersionCard key={v.evalId} v={v} isCurrent={v.evalId === current.evalId} />
         ))}

@@ -4,16 +4,6 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createAgentAction, updateAgentAction } from "./actions";
 
-const input: React.CSSProperties = {
-  padding: "0.4rem 0.5rem",
-  borderRadius: 6,
-  border: "1px solid var(--border, #ccc)",
-  background: "var(--background, #fff)",
-  color: "inherit",
-  minWidth: 220,
-};
-const field: React.CSSProperties = { display: "flex", flexDirection: "column", gap: "0.2rem" };
-
 export interface AgentFormInitial {
   loginId: number | null;
   agentName: string;
@@ -71,10 +61,10 @@ export function AgentForm({
 
   return (
     <section style={{ display: "grid", gap: "0.9rem", maxWidth: 460 }}>
-      <label style={field}>
+      <label className="field">
         <span>Login ID {mode === "create" ? "*" : ""}</span>
         <input
-          style={input}
+          className="input"
           type="number"
           aria-label="loginId"
           value={loginId}
@@ -82,28 +72,28 @@ export function AgentForm({
           onChange={(e) => setLoginId(e.target.value)}
         />
       </label>
-      <label style={field}>
+      <label className="field">
         <span>Agent name *</span>
         <input
-          style={input}
+          className="input"
           aria-label="agentName"
           value={agentName}
           onChange={(e) => setAgentName(e.target.value)}
         />
       </label>
-      <label style={field}>
+      <label className="field">
         <span>Team leader *</span>
         <input
-          style={input}
+          className="input"
           aria-label="tlName"
           value={tlName}
           onChange={(e) => setTlName(e.target.value)}
         />
       </label>
-      <label style={field}>
+      <label className="field">
         <span>Join date *</span>
         <input
-          style={input}
+          className="input"
           type="date"
           aria-label="joinDate"
           value={joinDate}
@@ -126,22 +116,14 @@ export function AgentForm({
       <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
         <button
           type="button"
+          className="btn btn-primary"
           onClick={submit}
           disabled={!canSubmit || pending}
-          style={{
-            padding: "0.5rem 1rem",
-            borderRadius: 6,
-            border: "none",
-            background: "var(--accent, #2563eb)",
-            color: "#fff",
-            cursor: !canSubmit || pending ? "not-allowed" : "pointer",
-            opacity: !canSubmit || pending ? 0.6 : 1,
-          }}
         >
           {pending ? "Saving…" : mode === "create" ? "Create agent" : "Save changes"}
         </button>
         {error && (
-          <span style={{ color: "var(--danger, #c0392b)" }} role="alert">
+          <span style={{ color: "var(--danger)" }} role="alert">
             {error}
           </span>
         )}

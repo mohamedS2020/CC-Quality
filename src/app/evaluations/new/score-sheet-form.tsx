@@ -46,8 +46,10 @@ export function ScoreSheetForm({
   return (
     <div style={{ display: "grid", gap: "1.5rem" }}>
       <div>
-        <h1 style={{ fontSize: "1.6rem", marginBottom: "0.25rem" }}>New score sheet</h1>
-        <p style={{ color: "var(--muted)", margin: 0 }}>
+        <h1 className="page-title" style={{ fontSize: "1.6rem" }}>
+          New score sheet
+        </h1>
+        <p className="page-sub">
           Enter the call details and flag every error. Scores are derived on save — never typed.
         </p>
       </div>
@@ -64,27 +66,17 @@ export function ScoreSheetForm({
       <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
         <button
           type="button"
+          className="btn btn-primary"
           onClick={submit}
           disabled={!canSubmit || pending}
-          style={{
-            padding: "0.55rem 1rem",
-            borderRadius: 6,
-            border: "none",
-            background: "var(--accent, #2563eb)",
-            color: "#fff",
-            cursor: !canSubmit || pending ? "not-allowed" : "pointer",
-            opacity: !canSubmit || pending ? 0.6 : 1,
-          }}
         >
           {pending ? "Saving…" : "Save score sheet"}
         </button>
         {result?.ok && (
-          <span style={{ color: "var(--success, #2e7d32)" }}>
-            Saved evaluation {result.evalId}.
-          </span>
+          <span style={{ color: "var(--success)" }}>Saved evaluation {result.evalId}.</span>
         )}
         {result && !result.ok && (
-          <span style={{ color: "var(--danger, #c0392b)" }} role="alert">
+          <span style={{ color: "var(--danger)" }} role="alert">
             {result.message}
           </span>
         )}

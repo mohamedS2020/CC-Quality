@@ -10,15 +10,6 @@ import { DictionaryEditor } from "./dictionary-editor";
 import { PolicyEditor, type PolicyFields } from "./policy-editor";
 import { saveConfigAction, type SaveConfigResult } from "./actions";
 
-const input: React.CSSProperties = {
-  padding: "0.45rem 0.6rem",
-  borderRadius: 6,
-  border: "1px solid var(--border, #ccc)",
-  background: "var(--background, #fff)",
-  color: "inherit",
-  minWidth: 260,
-};
-
 const TABS = ["sections", "rubric", "lenses", "dictionary", "policy"] as const;
 type Tab = (typeof TABS)[number];
 const TAB_LABELS: Record<Tab, string> = {
@@ -70,22 +61,24 @@ export function ConfigEditor({ initialDraft }: { initialDraft: ConfigInput }) {
   return (
     <div style={{ display: "grid", gap: "1.5rem" }}>
       <div>
-        <h1 style={{ fontSize: "1.6rem", marginBottom: "0.25rem" }}>Scorecard configuration</h1>
-        <p style={{ color: "var(--muted)", margin: 0 }}>
+        <h1 className="page-title" style={{ fontSize: "1.6rem" }}>
+          Scorecard configuration
+        </h1>
+        <p className="page-sub">
           Editing creates a new immutable version; past periods stay pinned to their version.
         </p>
       </div>
 
-      <label style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+      <label className="field" style={{ maxWidth: 320 }}>
         <span>Config name</span>
         <input
-          style={input}
+          className="input"
           value={draft.name}
           onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
         />
       </label>
 
-      <div role="tablist" style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" }}>
+      <div role="tablist" style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
         {TABS.map((t) => (
           <button
             key={t}
@@ -93,14 +86,7 @@ export function ConfigEditor({ initialDraft }: { initialDraft: ConfigInput }) {
             role="tab"
             aria-selected={tab === t}
             onClick={() => setTab(t)}
-            style={{
-              padding: "0.4rem 0.8rem",
-              borderRadius: 6,
-              border: "1px solid var(--border, #ccc)",
-              background: tab === t ? "var(--accent, #2563eb)" : "transparent",
-              color: tab === t ? "#fff" : "inherit",
-              cursor: "pointer",
-            }}
+            className={tab === t ? "btn btn-sm btn-primary" : "btn btn-sm btn-ghost"}
           >
             {TAB_LABELS[t]}
           </button>
@@ -133,11 +119,8 @@ export function ConfigEditor({ initialDraft }: { initialDraft: ConfigInput }) {
       {!validation.ok && (
         <div
           data-testid="validation-preview"
-          style={{
-            border: "1px solid var(--danger, #c0392b)",
-            borderRadius: 8,
-            padding: "0.75rem",
-          }}
+          className="card"
+          style={{ borderColor: "var(--danger)", background: "var(--danger-soft)" }}
         >
           <strong>{validation.errors.length} issue(s) to resolve before saving:</strong>
           <ul style={{ margin: "0.5rem 0 0", paddingLeft: "1.2rem" }}>
@@ -153,28 +136,18 @@ export function ConfigEditor({ initialDraft }: { initialDraft: ConfigInput }) {
       <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
         <button
           type="button"
+          className="btn btn-primary"
           onClick={save}
           disabled={pending || !validation.ok}
-          style={{
-            padding: "0.55rem 1rem",
-            borderRadius: 6,
-            border: "none",
-            background: "var(--accent, #2563eb)",
-            color: "#fff",
-            cursor: pending || !validation.ok ? "not-allowed" : "pointer",
-            opacity: pending || !validation.ok ? 0.6 : 1,
-          }}
         >
           {pending ? "Saving…" : "Save as new version"}
         </button>
 
         {result?.ok && (
-          <span style={{ color: "var(--success, #2e7d32)" }}>
-            Saved as version {result.version}.
-          </span>
+          <span style={{ color: "var(--success)" }}>Saved as version {result.version}.</span>
         )}
         {result && !result.ok && (
-          <span style={{ color: "var(--danger, #c0392b)" }} role="alert">
+          <span style={{ color: "var(--danger)" }} role="alert">
             {result.message ?? `Save rejected (${result.errors?.length ?? 0} validation error(s)).`}
           </span>
         )}

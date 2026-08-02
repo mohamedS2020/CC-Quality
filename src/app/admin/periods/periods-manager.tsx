@@ -30,16 +30,18 @@ const STATUS_LABEL: Record<PeriodStatus, string> = {
   LOCKED: "Locked",
 };
 
+const STATUS_BADGE: Record<PeriodStatus, string> = {
+  OPEN: "badge badge-success",
+  SCORING: "badge badge-accent",
+  REVIEW: "badge badge-warning",
+  LOCKED: "badge badge-danger",
+};
+
 function actionLabel(to: PeriodStatus, from: PeriodStatus): string {
   if (to === "LOCKED") return "Lock";
   if (to === "OPEN") return from === "LOCKED" ? "Reopen" : "Back to open";
   return `→ ${STATUS_LABEL[to]}`;
 }
-
-const cell: React.CSSProperties = {
-  padding: "0.6rem 0.5rem",
-  borderBottom: "1px solid var(--border)",
-};
 
 export function PeriodsManager({ initialPeriods }: { initialPeriods: PeriodRow[] }) {
   const router = useRouter();
@@ -57,73 +59,63 @@ export function PeriodsManager({ initialPeriods }: { initialPeriods: PeriodRow[]
 
   return (
     <section>
-      <h1 style={{ fontSize: "1.4rem", marginBottom: "0.25rem" }}>Periods</h1>
-      <p style={{ color: "var(--muted)", marginBottom: "1.5rem" }}>
+      <h1 className="page-title">Periods</h1>
+      <p className="page-sub" style={{ marginBottom: "1.5rem" }}>
         Move a period through open → scoring → review → locked. A locked period is immutable — new
         calls cannot land in it and existing scores cannot be edited (FR-44).
       </p>
 
       {initialPeriods.length === 0 ? (
-        <p style={{ color: "var(--muted)" }}>
-          No periods yet. One opens automatically with the first scored call.
-        </p>
+        <p className="empty">No periods yet. One opens automatically with the first scored call.</p>
       ) : (
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
-          <thead>
-            <tr style={{ textAlign: "left", color: "var(--muted)" }}>
-              <th style={cell}>Period</th>
-              <th style={cell}>Status</th>
-              <th style={cell}>Calls</th>
-              <th style={cell}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {initialPeriods.map((p) => (
-              <tr key={p.id}>
-                <td style={cell}>
-                  {p.label} <span style={{ color: "var(--muted)" }}>({p.type.toLowerCase()})</span>
-                </td>
-                <td style={cell}>
-                  <strong>{STATUS_LABEL[p.status]}</strong>
-                  {p.status === "LOCKED" && p.lockedAt ? (
-                    <span style={{ color: "var(--muted)" }}>
-                      {" "}
-                      · {new Date(p.lockedAt).toLocaleDateString()}
-                    </span>
-                  ) : null}
-                </td>
-                <td style={cell}>{p.evaluations}</td>
-                <td style={cell}>
-                  <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-                    {NEXT[p.status].map((to) => (
-                      <button
-                        key={to}
-                        type="button"
-                        disabled={pending}
-                        onClick={() => run(p.id, to)}
-                        style={{
-                          padding: "0.3rem 0.6rem",
-                          border: "1px solid var(--border)",
-                          borderRadius: 6,
-                          background: to === "LOCKED" ? "var(--danger, #b91c1c)" : "transparent",
-                          color: to === "LOCKED" ? "#fff" : "inherit",
-                          cursor: pending ? "default" : "pointer",
-                        }}
-                      >
-                        {actionLabel(to, p.status)}
-                      </button>
-                    ))}
-                  </div>
-                  {error && error.id === p.id ? (
-                    <p style={{ color: "var(--danger, #b91c1c)", marginTop: "0.4rem" }}>
-                      {error.text}
-                    </p>
-                  ) : null}
-                </td>
+        <div className="card" style={{ padding: "0.5rem 0.75rem" }}>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Period</th>
+                <th>Status</th>
+                <th>Calls</th>
+                <th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {initialPeriods.map((p) => (
+                <tr key={p.id}>
+                  <td>
+                    {p.label} <span className="muted">({p.type.toLowerCase()})</span>
+                  </td>
+                  <td>
+                    <span className={STATUS_BADGE[p.status]}>{STATUS_LABEL[p.status]}</span>
+                    {p.status === "LOCKED" && p.lockedAt ? (
+                      <span className="muted"> · {new Date(p.lockedAt).toLocaleDateString()}</span>
+                    ) : null}
+                  </td>
+                  <td style={{ fontVariantNumeric: "tabular-nums" }}>{p.evaluations}</td>
+                  <td>
+                    <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                      {NEXT[p.status].map((to) => (
+                        <button
+                          key={to}
+                          type="button"
+                          className={
+                            to === "LOCKED" ? "btn btn-sm btn-danger" : "btn btn-sm btn-ghost"
+                          }
+                          disabled={pending}
+                          onClick={() => run(p.id, to)}
+                        >
+                          {actionLabel(to, p.status)}
+                        </button>
+                      ))}
+                    </div>
+                    {error && error.id === p.id ? (
+                      <p style={{ color: "var(--danger)", marginTop: "0.4rem" }}>{error.text}</p>
+                    ) : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );

@@ -3,8 +3,6 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  box,
-  input,
   metaIsComplete,
   metaToFields,
   ScoreSheetFields,
@@ -62,22 +60,27 @@ export function CorrectionForm({
   return (
     <div style={{ display: "grid", gap: "1.5rem" }}>
       <div>
-        <h1 style={{ fontSize: "1.6rem", marginBottom: "0.25rem" }}>Correct evaluation</h1>
-        <p style={{ color: "var(--muted)", margin: 0 }}>
+        <h1 className="page-title" style={{ fontSize: "1.6rem" }}>
+          Correct evaluation
+        </h1>
+        <p className="page-sub">
           {agentName} · correcting v{version}. Saving writes a new version and preserves the
           original — scores are re-derived, never typed.
         </p>
       </div>
 
-      <section style={box}>
-        <h2 style={{ fontSize: "1.15rem", marginTop: 0 }}>Reason for correction *</h2>
+      <section className="card">
+        <h2 style={{ fontSize: "1.1rem", marginTop: 0, marginBottom: "0.6rem" }}>
+          Reason for correction *
+        </h2>
         <textarea
+          className="textarea"
           aria-label="reason"
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           rows={2}
           placeholder="Why is this call being corrected?"
-          style={{ ...input, width: "100%", resize: "vertical" }}
+          style={{ resize: "vertical" }}
         />
       </section>
 
@@ -93,22 +96,14 @@ export function CorrectionForm({
       <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
         <button
           type="button"
+          className="btn btn-primary"
           onClick={submit}
           disabled={!canSubmit || pending}
-          style={{
-            padding: "0.55rem 1rem",
-            borderRadius: 6,
-            border: "none",
-            background: "var(--accent, #2563eb)",
-            color: "#fff",
-            cursor: !canSubmit || pending ? "not-allowed" : "pointer",
-            opacity: !canSubmit || pending ? 0.6 : 1,
-          }}
         >
           {pending ? "Saving…" : "Save correction"}
         </button>
         {result && !result.ok && (
-          <span style={{ color: "var(--danger, #c0392b)" }} role="alert">
+          <span style={{ color: "var(--danger)" }} role="alert">
             {result.message}
           </span>
         )}

@@ -5,12 +5,6 @@ import { userRepository } from "@/lib/db/repositories";
 
 export const dynamic = "force-dynamic";
 
-const shell: React.CSSProperties = { maxWidth: 1000, margin: "0 auto", padding: "2.5rem 1.5rem" };
-const cell: React.CSSProperties = {
-  padding: "0.6rem 0.5rem",
-  borderBottom: "1px solid var(--border)",
-};
-
 const ROLE_LABEL: Record<string, string> = {
   ADMIN: "Admin",
   MODERATOR: "Moderator",
@@ -23,9 +17,9 @@ export default async function UsersPage() {
 
   if (!ctx.permissions.has("users.manage")) {
     return (
-      <main style={shell}>
-        <h1 style={{ fontSize: "1.4rem" }}>403 — Forbidden</h1>
-        <p style={{ color: "var(--muted)" }}>You need the “Manage users” permission.</p>
+      <main className="page page-narrow">
+        <h1 className="page-title">403 — Forbidden</h1>
+        <p className="page-sub">You need the “Manage users” permission.</p>
       </main>
     );
   }
@@ -33,48 +27,60 @@ export default async function UsersPage() {
   const users = await userRepository.list();
 
   return (
-    <main style={shell}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <h1 style={{ fontSize: "1.5rem" }}>Users</h1>
-        <Link href="/admin/users/new" style={{ color: "var(--accent, #2563eb)" }}>
+    <main className="page">
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "baseline",
+          gap: "1rem",
+        }}
+      >
+        <div>
+          <h1 className="page-title">Users</h1>
+          <p className="page-sub">
+            Admins, Moderators, and Agents. Moderator privileges are granted per-user.
+          </p>
+        </div>
+        <Link href="/admin/users/new" className="btn btn-primary">
           + New user
         </Link>
       </div>
-      <p style={{ color: "var(--muted)", marginBottom: "1.5rem" }}>
-        Admins, Moderators, and Agents. Moderator privileges are granted per-user; Agent users are
-        linked to an agent record and limited to their own data.
-      </p>
 
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
-        <thead>
-          <tr style={{ textAlign: "left", color: "var(--muted)" }}>
-            <th style={cell}>Name</th>
-            <th style={cell}>Email</th>
-            <th style={cell}>Role</th>
-            <th style={cell}>Linked agent</th>
-            <th style={cell}>Status</th>
-            <th style={cell}></th>
-          </tr>
-        </thead>
-        <tbody>
-          {users.map((u) => (
-            <tr key={u.id}>
-              <td style={cell}>{u.name}</td>
-              <td style={cell}>{u.email}</td>
-              <td style={cell}>{ROLE_LABEL[u.role] ?? u.role}</td>
-              <td style={cell}>{u.agent ? `${u.agent.agentName} (${u.agent.loginId})` : "—"}</td>
-              <td style={cell}>
-                {u.active ? "Active" : <span style={{ color: "var(--muted)" }}>Inactive</span>}
-              </td>
-              <td style={cell}>
-                <Link href={`/admin/users/${u.id}`} style={{ color: "var(--accent, #2563eb)" }}>
-                  Edit
-                </Link>
-              </td>
+      <div className="card" style={{ marginTop: "1.5rem", padding: "0.5rem 0.75rem" }}>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Linked agent</th>
+              <th>Status</th>
+              <th></th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {users.map((u) => (
+              <tr key={u.id}>
+                <td>{u.name}</td>
+                <td className="muted">{u.email}</td>
+                <td>{ROLE_LABEL[u.role] ?? u.role}</td>
+                <td>{u.agent ? `${u.agent.agentName} (${u.agent.loginId})` : "—"}</td>
+                <td>
+                  {u.active ? (
+                    <span className="badge badge-success">Active</span>
+                  ) : (
+                    <span className="badge">Inactive</span>
+                  )}
+                </td>
+                <td style={{ textAlign: "right" }}>
+                  <Link href={`/admin/users/${u.id}`}>Edit →</Link>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </main>
   );
 }

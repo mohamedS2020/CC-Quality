@@ -9,8 +9,6 @@ import { CorrectionForm } from "./correction-form";
 
 export const dynamic = "force-dynamic";
 
-const shell: React.CSSProperties = { maxWidth: 900, margin: "0 auto", padding: "2.5rem 1.5rem" };
-
 function hhmm(t: Date | null): string {
   return t ? t.toISOString().slice(11, 16) : "";
 }
@@ -29,9 +27,9 @@ export default async function CorrectEvaluationPage({
 
   if (!ctx.permissions.has("evaluations.edit")) {
     return (
-      <main style={shell}>
-        <h1 style={{ fontSize: "1.4rem" }}>403 — Forbidden</h1>
-        <p style={{ color: "var(--muted)" }}>You need the “Edit evaluations” permission.</p>
+      <main className="page page-narrow">
+        <h1 className="page-title">403 — Forbidden</h1>
+        <p className="page-sub">You need the “Edit evaluations” permission.</p>
       </main>
     );
   }
@@ -48,9 +46,9 @@ export default async function CorrectEvaluationPage({
   const config = await loadConfigById(evaluation.configId);
   if (!config) {
     return (
-      <main style={shell}>
-        <h1 style={{ fontSize: "1.4rem" }}>Configuration unavailable</h1>
-        <p style={{ color: "var(--muted)" }}>
+      <main className="page page-narrow">
+        <h1 className="page-title">Configuration unavailable</h1>
+        <p className="page-sub">
           The configuration version this call was scored under could not be loaded.
         </p>
       </main>
@@ -80,7 +78,7 @@ export default async function CorrectEvaluationPage({
   }));
 
   return (
-    <main style={shell}>
+    <main className="page">
       <CorrectionForm
         evalId={evaluation.evalId}
         version={evaluation.version}

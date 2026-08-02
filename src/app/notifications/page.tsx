@@ -5,8 +5,6 @@ import { markAllReadAction, openNotificationAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-const shell: React.CSSProperties = { maxWidth: 720, margin: "0 auto", padding: "2.5rem 1.5rem" };
-
 function fmt(d: Date): string {
   return d.toISOString().slice(0, 16).replace("T", " ");
 }
@@ -19,23 +17,12 @@ export default async function NotificationsPage() {
   const hasUnread = notifications.some((n) => n.readAt === null);
 
   return (
-    <main style={shell}>
+    <main className="page page-narrow">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <h1 style={{ fontSize: "1.5rem" }}>Notifications</h1>
+        <h1 className="page-title">Notifications</h1>
         {hasUnread && (
           <form action={markAllReadAction}>
-            <button
-              type="submit"
-              style={{
-                padding: "0.4rem 0.8rem",
-                borderRadius: 6,
-                border: "1px solid var(--border)",
-                background: "transparent",
-                color: "inherit",
-                cursor: "pointer",
-                fontSize: "0.85rem",
-              }}
-            >
+            <button type="submit" className="btn btn-sm btn-ghost">
               Mark all as read
             </button>
           </form>
