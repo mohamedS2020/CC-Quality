@@ -23,28 +23,11 @@ export function emptySection(): SectionInput {
   };
 }
 
-const card: React.CSSProperties = {
-  border: "1px solid var(--border, #ccc)",
-  borderRadius: 8,
-  padding: "1rem",
-  marginBottom: "0.75rem",
-  display: "grid",
-  gap: "0.6rem",
-};
-
 const row: React.CSSProperties = {
   display: "flex",
   gap: "0.75rem",
   flexWrap: "wrap",
   alignItems: "center",
-};
-const field: React.CSSProperties = { display: "flex", flexDirection: "column", gap: "0.2rem" };
-const input: React.CSSProperties = {
-  padding: "0.4rem 0.5rem",
-  borderRadius: 6,
-  border: "1px solid var(--border, #ccc)",
-  background: "var(--background, #fff)",
-  color: "inherit",
 };
 
 function toNumber(value: string): number {
@@ -88,135 +71,156 @@ export function SectionsEditor({
         <h2 style={{ fontSize: "1.2rem", margin: 0 }}>Sections</h2>
         <span
           data-testid="rank-total"
-          style={{ color: rankOk ? "var(--success, #2e7d32)" : "var(--danger, #c0392b)" }}
+          className={rankOk ? "badge badge-success" : "badge badge-danger"}
         >
           Rank weight total: {rankTotal}
           {rankOk ? " ✓" : ` (must be ${RANK_WEIGHT_TOTAL})`}
         </span>
       </div>
 
-      {sections.length === 0 && (
-        <p style={{ color: "var(--muted)" }}>No sections yet. Add the first one below.</p>
-      )}
+      {sections.length === 0 && <p className="muted">No sections yet. Add the first one below.</p>}
 
-      {sections.map((section, i) => (
-        <div key={i} style={card} data-testid="section-card">
-          <div style={row}>
-            <label style={field}>
-              <span>Code</span>
-              <input
-                style={{ ...input, width: 90 }}
-                aria-label={`section-${i}-code`}
-                value={section.code}
-                onChange={(e) => update(i, { code: e.target.value })}
-              />
-            </label>
-            <label style={{ ...field, flex: 1, minWidth: 160 }}>
-              <span>Label</span>
-              <input
-                style={input}
-                aria-label={`section-${i}-label`}
-                value={section.label}
-                onChange={(e) => update(i, { label: e.target.value })}
-              />
-            </label>
-            <label style={field}>
-              <span>Scoring mode</span>
-              <select
-                style={input}
-                aria-label={`section-${i}-scoringMode`}
-                value={section.scoringMode}
-                onChange={(e) => update(i, { scoringMode: e.target.value as ScoringMode })}
-              >
-                {SCORING_MODES.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          {section.scoringMode === "GRADED_ATTRIBUTES" && (
-            <div
-              data-testid={`section-${i}-denominator`}
-              style={{ fontSize: "0.85rem", color: "var(--muted)" }}
-            >
-              Attributes per call (denominator): <strong>{attributeCountOf(section)}</strong> —
-              derived from the rubric, read-only (FR-32).
+      <div style={{ display: "grid", gap: "0.75rem" }}>
+        {sections.map((section, i) => (
+          <div
+            key={i}
+            className="card"
+            data-testid="section-card"
+            style={{ display: "grid", gap: "0.6rem" }}
+          >
+            <div style={row}>
+              <label className="field">
+                <span>Code</span>
+                <input
+                  className="input"
+                  style={{ width: 90 }}
+                  aria-label={`section-${i}-code`}
+                  value={section.code}
+                  onChange={(e) => update(i, { code: e.target.value })}
+                />
+              </label>
+              <label className="field" style={{ flex: 1, minWidth: 160 }}>
+                <span>Label</span>
+                <input
+                  className="input"
+                  aria-label={`section-${i}-label`}
+                  value={section.label}
+                  onChange={(e) => update(i, { label: e.target.value })}
+                />
+              </label>
+              <label className="field">
+                <span>Scoring mode</span>
+                <select
+                  className="select"
+                  aria-label={`section-${i}-scoringMode`}
+                  value={section.scoringMode}
+                  onChange={(e) => update(i, { scoringMode: e.target.value as ScoringMode })}
+                >
+                  {SCORING_MODES.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
-          )}
 
-          <div style={row}>
-            <label style={{ display: "flex", gap: "0.35rem", alignItems: "center" }}>
-              <input
-                type="checkbox"
-                aria-label={`section-${i}-critical`}
-                checked={section.critical}
-                onChange={(e) => update(i, { critical: e.target.checked })}
-              />
-              <span>Critical (feeds sum of criticals)</span>
-            </label>
-            <label style={{ display: "flex", gap: "0.35rem", alignItems: "center" }}>
-              <input
-                type="checkbox"
-                aria-label={`section-${i}-capPerAttribute`}
-                checked={section.capPerAttribute}
-                onChange={(e) => update(i, { capPerAttribute: e.target.checked })}
-              />
-              <span>Cap per attribute (graded)</span>
-            </label>
-          </div>
-
-          <div style={row}>
-            <label style={field}>
-              <span>Rank weight</span>
-              <input
-                style={{ ...input, width: 100 }}
-                type="number"
-                aria-label={`section-${i}-rankWeight`}
-                value={section.rankWeight}
-                onChange={(e) => update(i, { rankWeight: toNumber(e.target.value) })}
-              />
-            </label>
-            <label style={field}>
-              <span>Rank benchmark (0–1)</span>
-              <input
-                style={{ ...input, width: 120 }}
-                type="number"
-                step="0.001"
-                aria-label={`section-${i}-rankBenchmark`}
-                value={section.rankBenchmark}
-                onChange={(e) => update(i, { rankBenchmark: toNumber(e.target.value) })}
-              />
-            </label>
-
-            <div style={{ ...row, marginLeft: "auto" }}>
-              <button
-                type="button"
-                onClick={() => move(i, -1)}
-                disabled={i === 0}
-                aria-label={`section-${i}-up`}
+            {section.scoringMode === "GRADED_ATTRIBUTES" && (
+              <div
+                data-testid={`section-${i}-denominator`}
+                className="muted"
+                style={{ fontSize: "0.85rem" }}
               >
-                ↑
-              </button>
-              <button
-                type="button"
-                onClick={() => move(i, 1)}
-                disabled={i === sections.length - 1}
-                aria-label={`section-${i}-down`}
-              >
-                ↓
-              </button>
-              <button type="button" onClick={() => remove(i)} aria-label={`section-${i}-remove`}>
-                Remove
-              </button>
+                Attributes per call (denominator): <strong>{attributeCountOf(section)}</strong> —
+                derived from the rubric, read-only (FR-32).
+              </div>
+            )}
+
+            <div style={row}>
+              <label style={{ display: "flex", gap: "0.35rem", alignItems: "center" }}>
+                <input
+                  type="checkbox"
+                  aria-label={`section-${i}-critical`}
+                  checked={section.critical}
+                  onChange={(e) => update(i, { critical: e.target.checked })}
+                />
+                <span>Critical (feeds sum of criticals)</span>
+              </label>
+              <label style={{ display: "flex", gap: "0.35rem", alignItems: "center" }}>
+                <input
+                  type="checkbox"
+                  aria-label={`section-${i}-capPerAttribute`}
+                  checked={section.capPerAttribute}
+                  onChange={(e) => update(i, { capPerAttribute: e.target.checked })}
+                />
+                <span>Cap per attribute (graded)</span>
+              </label>
+            </div>
+
+            <div style={row}>
+              <label className="field">
+                <span>Rank weight</span>
+                <input
+                  className="input"
+                  style={{ width: 100 }}
+                  type="number"
+                  aria-label={`section-${i}-rankWeight`}
+                  value={section.rankWeight}
+                  onChange={(e) => update(i, { rankWeight: toNumber(e.target.value) })}
+                />
+              </label>
+              <label className="field">
+                <span>Rank benchmark (0–1)</span>
+                <input
+                  className="input"
+                  style={{ width: 120 }}
+                  type="number"
+                  step="0.001"
+                  aria-label={`section-${i}-rankBenchmark`}
+                  value={section.rankBenchmark}
+                  onChange={(e) => update(i, { rankBenchmark: toNumber(e.target.value) })}
+                />
+              </label>
+
+              <div style={{ ...row, marginLeft: "auto" }}>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-ghost"
+                  onClick={() => move(i, -1)}
+                  disabled={i === 0}
+                  aria-label={`section-${i}-up`}
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-ghost"
+                  onClick={() => move(i, 1)}
+                  disabled={i === sections.length - 1}
+                  aria-label={`section-${i}-down`}
+                >
+                  ↓
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-ghost"
+                  onClick={() => remove(i)}
+                  aria-label={`section-${i}-remove`}
+                >
+                  Remove
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
 
-      <button type="button" onClick={add}>
+      <button
+        type="button"
+        className="btn btn-sm btn-ghost"
+        style={{ marginTop: "0.75rem" }}
+        onClick={add}
+      >
         + Add section
       </button>
     </section>

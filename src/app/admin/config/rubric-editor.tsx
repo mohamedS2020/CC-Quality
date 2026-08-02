@@ -11,30 +11,17 @@ export const emptyCategory = (): CategoryInput => ({ label: "", attributes: [] }
 export const emptyAttribute = (): AttributeInput => ({ label: "", errorReasons: [] });
 export const emptyErrorReason = (): ErrorReasonInput => ({ label: "", dictionary: null });
 
-const input: React.CSSProperties = {
-  padding: "0.35rem 0.5rem",
-  borderRadius: 6,
-  border: "1px solid var(--border, #ccc)",
-  background: "var(--background, #fff)",
-  color: "inherit",
-  flex: 1,
-  minWidth: 160,
-};
+const inputFlex: React.CSSProperties = { flex: 1, minWidth: 160 };
 const row: React.CSSProperties = { display: "flex", gap: "0.5rem", alignItems: "center" };
-const sectionBox: React.CSSProperties = {
-  border: "1px solid var(--border, #ccc)",
-  borderRadius: 8,
-  padding: "0.75rem 1rem 1rem",
-};
 const categoryBox: React.CSSProperties = {
-  borderLeft: "3px solid var(--border, #ccc)",
+  borderLeft: "3px solid var(--border)",
   paddingLeft: "0.75rem",
   margin: "0.75rem 0",
   display: "grid",
   gap: "0.5rem",
 };
 const attributeBox: React.CSSProperties = {
-  borderLeft: "2px dashed var(--border, #ddd)",
+  borderLeft: "2px dashed var(--border)",
   paddingLeft: "0.75rem",
   marginLeft: "0.5rem",
   display: "grid",
@@ -73,17 +60,15 @@ export function RubricEditor({
 
   if (sections.length === 0) {
     return (
-      <p style={{ color: "var(--muted)" }}>
-        Add sections first (Sections tab), then build their rubric here.
-      </p>
+      <p className="muted">Add sections first (Sections tab), then build their rubric here.</p>
     );
   }
 
   return (
     <div style={{ display: "grid", gap: "1.25rem" }}>
       {sections.map((section, si) => (
-        <fieldset key={si} style={sectionBox} data-testid="rubric-section">
-          <legend style={{ fontWeight: 600 }}>
+        <fieldset key={si} className="card" data-testid="rubric-section">
+          <legend style={{ fontWeight: 600, padding: "0 0.4rem" }}>
             {section.code || "(no code)"} — {section.label || "(no label)"} ·{" "}
             {section.categories.reduce((n, c) => n + c.attributes.length, 0)} attribute(s)
           </legend>
@@ -92,7 +77,8 @@ export function RubricEditor({
             <div key={ci} style={categoryBox} data-testid="rubric-category">
               <div style={row}>
                 <input
-                  style={input}
+                  className="input"
+                  style={inputFlex}
                   placeholder="Category label"
                   aria-label={`s${si}-c${ci}-label`}
                   value={category.label}
@@ -104,6 +90,7 @@ export function RubricEditor({
                 />
                 <button
                   type="button"
+                  className="btn btn-sm btn-ghost"
                   aria-label={`s${si}-c${ci}-remove`}
                   onClick={() => patchCategories(si, (cats) => cats.filter((_, i) => i !== ci))}
                 >
@@ -115,7 +102,8 @@ export function RubricEditor({
                 <div key={ai} style={attributeBox} data-testid="rubric-attribute">
                   <div style={row}>
                     <input
-                      style={input}
+                      className="input"
+                      style={inputFlex}
                       placeholder="Attribute label"
                       aria-label={`s${si}-c${ci}-a${ai}-label`}
                       value={attribute.label}
@@ -127,6 +115,7 @@ export function RubricEditor({
                     />
                     <button
                       type="button"
+                      className="btn btn-sm btn-ghost"
                       aria-label={`s${si}-c${ci}-a${ai}-remove`}
                       onClick={() =>
                         patchAttributes(si, ci, (attrs) => attrs.filter((_, i) => i !== ai))
@@ -139,7 +128,8 @@ export function RubricEditor({
                   {attribute.errorReasons.map((reason, ri) => (
                     <div key={ri} style={reasonRow} data-testid="rubric-reason">
                       <input
-                        style={input}
+                        className="input"
+                        style={inputFlex}
                         placeholder="Error reason"
                         aria-label={`s${si}-c${ci}-a${ai}-r${ri}-label`}
                         value={reason.label}
@@ -151,6 +141,7 @@ export function RubricEditor({
                       />
                       <button
                         type="button"
+                        className="btn btn-sm btn-ghost"
                         aria-label={`s${si}-c${ci}-a${ai}-r${ri}-remove`}
                         onClick={() =>
                           patchReasons(si, ci, ai, (reasons) => reasons.filter((_, i) => i !== ri))
@@ -163,6 +154,7 @@ export function RubricEditor({
 
                   <button
                     type="button"
+                    className="btn btn-sm btn-ghost"
                     aria-label={`s${si}-c${ci}-a${ai}-add-reason`}
                     onClick={() =>
                       patchReasons(si, ci, ai, (reasons) => [...reasons, emptyErrorReason()])
@@ -175,6 +167,7 @@ export function RubricEditor({
 
               <button
                 type="button"
+                className="btn btn-sm btn-ghost"
                 aria-label={`s${si}-c${ci}-add-attr`}
                 onClick={() => patchAttributes(si, ci, (attrs) => [...attrs, emptyAttribute()])}
               >
@@ -185,6 +178,7 @@ export function RubricEditor({
 
           <button
             type="button"
+            className="btn btn-sm btn-ghost"
             aria-label={`s${si}-add-cat`}
             onClick={() => patchCategories(si, (cats) => [...cats, emptyCategory()])}
           >

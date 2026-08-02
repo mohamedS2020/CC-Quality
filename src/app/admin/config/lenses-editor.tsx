@@ -20,26 +20,11 @@ export function emptyLens(sectionCodes: string[]): LensInput {
   };
 }
 
-const card: React.CSSProperties = {
-  border: "1px solid var(--border, #ccc)",
-  borderRadius: 8,
-  padding: "1rem",
-  display: "grid",
-  gap: "0.75rem",
-};
 const row: React.CSSProperties = {
   display: "flex",
   gap: "0.75rem",
   flexWrap: "wrap",
   alignItems: "center",
-};
-const field: React.CSSProperties = { display: "flex", flexDirection: "column", gap: "0.2rem" };
-const input: React.CSSProperties = {
-  padding: "0.4rem 0.5rem",
-  borderRadius: 6,
-  border: "1px solid var(--border, #ccc)",
-  background: "var(--background, #fff)",
-  color: "inherit",
 };
 const grid: React.CSSProperties = {
   display: "flex",
@@ -85,7 +70,7 @@ export function LensesEditor({
 
   if (sectionCodes.length === 0) {
     return (
-      <p style={{ color: "var(--muted)" }}>
+      <p className="muted">
         Add sections first, then define lenses and their per-section benchmarks here.
       </p>
     );
@@ -93,36 +78,42 @@ export function LensesEditor({
 
   return (
     <div style={{ display: "grid", gap: "1rem" }}>
-      <p style={{ color: "var(--muted)", margin: 0 }}>
+      <p className="muted" style={{ margin: 0 }}>
         Rank weights &amp; benchmarks are set per section in the Sections tab. Each lens needs a
         benchmark for every section.
       </p>
 
       {lenses.map((lens, i) => (
-        <div key={i} style={card} data-testid="lens-card">
+        <div
+          key={i}
+          className="card"
+          data-testid="lens-card"
+          style={{ display: "grid", gap: "0.75rem" }}
+        >
           <div style={row}>
-            <label style={field}>
+            <label className="field">
               <span>Key</span>
               <input
-                style={{ ...input, width: 120 }}
+                className="input"
+                style={{ width: 120 }}
                 aria-label={`lens-${i}-key`}
                 value={lens.key}
                 onChange={(e) => update(i, { key: e.target.value })}
               />
             </label>
-            <label style={{ ...field, flex: 1, minWidth: 160 }}>
+            <label className="field" style={{ flex: 1, minWidth: 160 }}>
               <span>Label</span>
               <input
-                style={input}
+                className="input"
                 aria-label={`lens-${i}-label`}
                 value={lens.label}
                 onChange={(e) => update(i, { label: e.target.value })}
               />
             </label>
-            <label style={field}>
+            <label className="field">
               <span>Basis</span>
               <select
-                style={input}
+                className="select"
                 aria-label={`lens-${i}-basis`}
                 value={lens.basis}
                 onChange={(e) => update(i, { basis: e.target.value as LensBasis })}
@@ -136,6 +127,7 @@ export function LensesEditor({
             </label>
             <button
               type="button"
+              className="btn btn-sm btn-ghost"
               aria-label={`lens-${i}-remove`}
               onClick={() => remove(i)}
               style={{ marginLeft: "auto" }}
@@ -148,10 +140,11 @@ export function LensesEditor({
             <strong style={{ fontSize: "0.9rem" }}>Benchmarks (0–1) per section</strong>
             <div style={grid}>
               {sectionCodes.map((code) => (
-                <label key={code} style={field}>
+                <label key={code} className="field">
                   <span>{code || "(no code)"}</span>
                   <input
-                    style={{ ...input, width: 100 }}
+                    className="input"
+                    style={{ width: 100 }}
                     type="number"
                     step="0.001"
                     aria-label={`lens-${i}-bench-${code}`}
@@ -165,7 +158,7 @@ export function LensesEditor({
         </div>
       ))}
 
-      <button type="button" onClick={add}>
+      <button type="button" className="btn btn-sm btn-ghost" onClick={add}>
         + Add lens
       </button>
     </div>

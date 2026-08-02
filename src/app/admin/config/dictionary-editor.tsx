@@ -24,18 +24,6 @@ const row: React.CSSProperties = {
   alignItems: "center",
   flexWrap: "wrap",
 };
-const input: React.CSSProperties = {
-  padding: "0.35rem 0.5rem",
-  borderRadius: 6,
-  border: "1px solid var(--border, #ccc)",
-  background: "var(--background, #fff)",
-  color: "inherit",
-};
-const box: React.CSSProperties = {
-  border: "1px solid var(--border, #ccc)",
-  borderRadius: 8,
-  padding: "0.75rem 1rem",
-};
 
 function StringList({
   title,
@@ -49,19 +37,21 @@ function StringList({
   idPrefix: string;
 }) {
   return (
-    <div style={box}>
+    <div className="card">
       <strong>{title}</strong>
       <div style={{ display: "grid", gap: "0.4rem", margin: "0.5rem 0" }}>
         {items.map((value, i) => (
           <div key={i} style={row}>
             <input
-              style={{ ...input, minWidth: 220 }}
+              className="input"
+              style={{ minWidth: 220 }}
               aria-label={`${idPrefix}-${i}`}
               value={value}
               onChange={(e) => onChange(items.map((x, j) => (j === i ? e.target.value : x)))}
             />
             <button
               type="button"
+              className="btn btn-sm btn-ghost"
               aria-label={`${idPrefix}-${i}-remove`}
               onClick={() => onChange(items.filter((_, j) => j !== i))}
             >
@@ -70,7 +60,12 @@ function StringList({
           </div>
         ))}
       </div>
-      <button type="button" aria-label={`add-${idPrefix}`} onClick={() => onChange([...items, ""])}>
+      <button
+        type="button"
+        className="btn btn-sm btn-ghost"
+        aria-label={`add-${idPrefix}`}
+        onClick={() => onChange([...items, ""])}
+      >
         + Add
       </button>
     </div>
@@ -180,7 +175,7 @@ export function DictionaryEditor({
       <div>
         <h2 style={{ fontSize: "1.2rem" }}>Error reason dictionary</h2>
         {reasons.length === 0 && (
-          <p style={{ color: "var(--muted)" }}>
+          <p className="muted">
             Add error reasons in the Rubric tree tab, then annotate them here.
           </p>
         )}
@@ -190,11 +185,12 @@ export function DictionaryEditor({
             const base = `reason-${si}-${ci}-${ai}-${ri}`;
             const d = dictionary;
             return (
-              <div key={base} style={box} data-testid="dict-reason">
+              <div key={base} className="card" data-testid="dict-reason">
                 <div style={{ fontWeight: 600, marginBottom: "0.4rem" }}>{path}</div>
                 <div style={row}>
                   <input
-                    style={{ ...input, flex: 1, minWidth: 220 }}
+                    className="input"
+                    style={{ flex: 1, minWidth: 220 }}
                     placeholder="Definition & examples"
                     aria-label={`${base}-definition`}
                     value={d?.definition ?? ""}
@@ -206,7 +202,8 @@ export function DictionaryEditor({
                     }
                   />
                   <select
-                    style={input}
+                    className="select"
+                    style={{ width: "auto" }}
                     aria-label={`${base}-severity`}
                     value={d?.severityLabel ?? ""}
                     onChange={(e) =>
@@ -224,7 +221,8 @@ export function DictionaryEditor({
                     ))}
                   </select>
                   <select
-                    style={input}
+                    className="select"
+                    style={{ width: "auto" }}
                     aria-label={`${base}-bucket`}
                     value={d?.trainingBucketLabel ?? ""}
                     onChange={(e) =>
@@ -247,7 +245,8 @@ export function DictionaryEditor({
                   {(d?.thresholds ?? []).map((t, ti) => (
                     <div key={ti} style={row} data-testid="dict-threshold">
                       <input
-                        style={{ ...input, flex: 1, minWidth: 180 }}
+                        className="input"
+                        style={{ flex: 1, minWidth: 180 }}
                         placeholder="when (e.g. 4 <= seconds <= 10)"
                         aria-label={`${base}-th-${ti}-when`}
                         value={t.whenExpr}
@@ -261,7 +260,8 @@ export function DictionaryEditor({
                         }
                       />
                       <select
-                        style={input}
+                        className="select"
+                        style={{ width: "auto" }}
                         aria-label={`${base}-th-${ti}-severity`}
                         value={t.severityLabel ?? ""}
                         onChange={(e) =>
@@ -282,6 +282,7 @@ export function DictionaryEditor({
                       </select>
                       <button
                         type="button"
+                        className="btn btn-sm btn-ghost"
                         aria-label={`${base}-th-${ti}-remove`}
                         onClick={() =>
                           patchReasonDictionary(si, ci, ai, ri, (cur) => ({
@@ -296,6 +297,7 @@ export function DictionaryEditor({
                   ))}
                   <button
                     type="button"
+                    className="btn btn-sm btn-ghost"
                     aria-label={`${base}-add-threshold`}
                     onClick={() =>
                       patchReasonDictionary(si, ci, ai, ri, (cur) => ({
