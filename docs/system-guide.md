@@ -286,3 +286,70 @@ way everywhere.
   parent task; do the holistic review after the MVP runs.
 - Verified numeric constants (baseline config values, reconciliation figures, tenure thresholds) are
   **cross‑checked with the product owner** before being locked in.
+
+---
+
+## Appendix A — Scoring & config reference (what the numbers mean)
+
+Everything below is **config data**, not engine code — editing it (and re‑versioning) changes scoring
+without touching the engine.
+
+### A.1 Section settings
+
+A **section** (`CC`, `EUC`, `BC`, `NC`, …) is one scored area of a call. Its settings:
+
+- **Scoring mode** — how one call's accuracy in the section is computed:
+  - **Section binary** (go/no‑go): *any* error → the section scores **0** for that call; no errors →
+    **1** (100%). No partial credit.
+  - **Graded attributes**: `accuracy = 1 − (failed units ÷ N)`, where **N** = the section's attribute
+    count. Each flagged item lowers the score proportionally.
+- **Critical** — if on, every error here adds to `sum_of_criticals` and makes the **whole call Fail**.
+  Binary + critical = the non‑negotiable compliance sections.
+- **Cap per attribute** — *graded only*. Off (default): each flagged sub‑reason is one failed unit.
+  On: multiple flags under the same attribute count as **one** failed unit. Differs only when 2+
+  sub‑reasons hit the same attribute on one call.
+- **Rank weight** — points (out of 100) this section contributes to the **Agent Rank**. All sections'
+  weights **sum to 100**.
+- **Rank benchmark** — the accuracy (fraction, `0.95` = 95%) the agent must reach in this section,
+  compared with **≥**, to earn that section's weight.
+
+### A.2 Agent Rank (threshold‑based, not an average)
+
+1. Compute the agent's average accuracy in each section across their calls.
+2. If it is **≥ the section's rank benchmark**, add the section's **full rank weight**; else add **0**.
+3. Sum across sections → a **0–100** rank.
+
+Example — weights `CC 40 / EUC 25 / BC 20 / NC 15`, benchmarks 95%. Agent scores CC 98%, EUC 100%,
+BC 97%, NC 92% → clears the first three, misses NC → rank = `40 + 25 + 20 = 85`. You collect a
+section's whole weight or nothing for it.
+
+### A.3 Lenses & benchmarks
+
+A **lens** aggregates accuracy across many calls: `accuracy = 1 − numerator ÷ denominator`, then
+compared to a per‑section **benchmark** (`≥` → pass/fail; `n/a` with no data). The **basis** is the
+counting rule:
+
+| Basis | Lens | Counts | Status |
+|---|---|---|---|
+| **Per error** | Account | Every individual error (`1 − errors ÷ opportunities`). | **Verified** — reconciled against real figures. |
+| **Per score sheet** | Program | Score sheets with ≥1 error in the section, over all score sheets. | **Provisional** |
+| **Failed scorecards** | Agent | Whole failed scorecards over all score sheets (a call‑level fail rate). | **Provisional** |
+
+Rely on **Per error (Account)** for now — it's the only reconciled basis. Program/Agent stay
+provisional until confirmed against a critical‑error month (`VERIFIED_BASES = { PER_ERROR }`).
+
+### A.4 Policy scalars
+
+- **Published decimal places** (`roundingDecimals`, e.g. 2) — decimals a **published percentage** is
+  rounded to (98.67%). Display/precision only; doesn't change the math.
+- **Pareto cutoff** (0–1, e.g. 0.8) — the **80/20** threshold. Errors are ranked by frequency; the
+  "vital few" are the top ones whose cumulative share reaches this cutoff. Drives the training‑focus
+  list (used by task‑9 dashboards).
+- **New‑agent tenure threshold (days)** — tenure below this = **new** agent, else **old**.
+- **Trial / probation window (days)** — within this many days of the join date, an agent is **in
+  trial** (so probation agents can be included/excluded from headline figures).
+
+**How they combine:** scoring mode + critical → each call's pass/fail and per‑section accuracy; rank
+weight + benchmark → the 0–100 Agent Rank; lens basis + benchmark → how accuracy is aggregated and
+judged across many calls; rounding → consistent published precision; Pareto cutoff → the priority
+training list; tenure/trial → agent segmentation for reporting.
