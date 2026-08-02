@@ -323,9 +323,22 @@ model Evaluation {
 
   periodId Int? @map("period_id") // the lockable period this call falls in (assigned at ingestion)
 
+  // Correction versioning (FR-14/15): a correction never mutates a scored row —
+  // it writes a NEW version linked to the one it replaces, and the old row is
+  // stamped superseded. The CURRENT version of a call is the one with
+  // `supersededAt` null; who/when/why forms the audit trail.
+  version          Int       @default(1)
+  correctionOfId   String?   @map("correction_of_id") // the version this corrects (null = original)
+  supersededAt     DateTime? @map("superseded_at") // set when a newer version replaces this row
+  correctedById    Int?      @map("corrected_by_id") // who authored this correction (null = original)
+  correctionReason String?   @map("correction_reason")
+
   agent         Agent            @relation(fields: [agentLoginId], references: [loginId])
   config        ScorecardConfig  @relation(fields: [configId], references: [id])
   period        Period?          @relation(fields: [periodId], references: [id], onDelete: SetNull)
+  correctionOf  Evaluation?      @relation("EvaluationVersions", fields: [correctionOfId], references: [evalId], onDelete: NoAction, onUpdate: NoAction)
+  corrections   Evaluation[]     @relation("EvaluationVersions")
+  correctedBy   User?            @relation("EvaluationCorrectedBy", fields: [correctedById], references: [id], onDelete: SetNull)
   lines         EvaluationLine[]
   notifications Notification[]
 
@@ -334,6 +347,7 @@ model Evaluation {
   @@index([configId])
   @@index([failedScorecard])
   @@index([periodId])
+  @@index([supersededAt])
   @@map("evaluations")
 }
 
@@ -376,13 +390,14 @@ model User {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  agent           Agent?            @relation(fields: [agentLoginId], references: [loginId], onDelete: SetNull)
-  permissions     UserPermission[]
-  createdConfigs  ScorecardConfig[]
-  lockedPeriods   Period[]          @relation("PeriodLockedBy")
-  reopenedPeriods Period[]          @relation("PeriodReopenedBy")
-  notifications   Notification[]
-  sessions        Session[]
+  agent                Agent?            @relation(fields: [agentLoginId], references: [loginId], onDelete: SetNull)
+  permissions          UserPermission[]
+  createdConfigs       ScorecardConfig[]
+  lockedPeriods        Period[]          @relation("PeriodLockedBy")
+  reopenedPeriods      Period[]          @relation("PeriodReopenedBy")
+  correctedEvaluations Evaluation[]      @relation("EvaluationCorrectedBy")
+  notifications        Notification[]
+  sessions             Session[]
 
   @@index([role])
   @@map("users")
