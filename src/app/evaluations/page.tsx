@@ -60,7 +60,7 @@ export default async function EvaluationsPage() {
                 <th>Agent</th>
                 <th>QA owner</th>
                 <th>Result</th>
-                <th>Version</th>
+                <th>Config</th>
                 <th></th>
               </tr>
             </thead>
@@ -78,8 +78,12 @@ export default async function EvaluationsPage() {
                     </span>
                   </td>
                   <td>
-                    v{e.version}
-                    {e.version > 1 && <span className="muted"> · corrected</span>}
+                    <span title="Scorecard configuration version">v{e.config.version}</span>
+                    {e.version > 1 && (
+                      <span className="badge badge-accent" style={{ marginLeft: "0.4rem" }}>
+                        corrected
+                      </span>
+                    )}
                   </td>
                   <td style={{ textAlign: "right" }}>
                     <Link href={`/evaluations/${e.evalId}`}>View →</Link>

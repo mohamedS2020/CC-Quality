@@ -117,8 +117,8 @@ export default async function EvaluationDetailPage({
         />
       </div>
       <p className="page-sub">
-        Call {fmtDate(current.callDate)} · Mobile {displayMobile(current.mobileMasked)} · Sum of
-        criticals {current.sumOfCriticals}
+        Call {fmtDate(current.callDate)} · Config v{current.config.version} · Mobile{" "}
+        {displayMobile(current.mobileMasked)} · Sum of criticals {current.sumOfCriticals}
       </p>
 
       {ctx.permissions.has("evaluations.edit") && (
@@ -132,9 +132,9 @@ export default async function EvaluationDetailPage({
       )}
 
       <h2 style={{ fontSize: "1.15rem", marginTop: "1.85rem" }}>
-        Version history{" "}
+        Revision history{" "}
         <span className="muted" style={{ fontWeight: 400 }}>
-          (audit trail)
+          (corrections audit trail)
         </span>
       </h2>
       <ol

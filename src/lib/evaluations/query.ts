@@ -12,6 +12,7 @@ const lineInclude = {
 const versionInclude = {
   agent: true,
   correctedBy: { select: { id: true, name: true } },
+  config: { select: { version: true } },
   lines: { include: lineInclude },
 } satisfies Prisma.EvaluationInclude;
 
@@ -31,6 +32,7 @@ export function listCurrentEvaluations(scope?: AgentScope) {
     include: {
       agent: { select: { agentName: true } },
       correctedBy: { select: { name: true } },
+      config: { select: { version: true } },
     },
   });
 }
