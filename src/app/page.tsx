@@ -9,6 +9,12 @@ type QuickAction = { href: string; title: string; description: string; permissio
 
 const ACTIONS: QuickAction[] = [
   {
+    href: "/dashboard",
+    title: "My scorecard",
+    description: "Your section accuracy, rank, and training focus.",
+    permission: "reports.view",
+  },
+  {
     href: "/evaluations/new",
     title: "Score a call",
     description: "Open a fresh score sheet — the engine derives every figure.",
@@ -52,42 +58,28 @@ const ACTIONS: QuickAction[] = [
   },
 ];
 
-const wrap: React.CSSProperties = { maxWidth: 960, margin: "0 auto", padding: "3rem 1.5rem" };
-
-const card: React.CSSProperties = {
-  display: "block",
-  padding: "1.1rem 1.2rem",
-  borderRadius: 12,
-  border: "1px solid var(--border)",
-  background: "var(--surface)",
-  color: "inherit",
-  textDecoration: "none",
-};
-
 export default async function HomePage() {
   const ctx = await getAuthContext();
 
   if (!ctx) {
     return (
-      <main
-        style={{ maxWidth: 460, margin: "0 auto", padding: "6rem 1.5rem", textAlign: "center" }}
-      >
-        <h1 style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>CC-Quality</h1>
-        <p style={{ color: "var(--muted)", marginBottom: "1.5rem" }}>
-          Call Center Quality Scoring System — QA Scorecard.
-        </p>
-        <Link
-          href="/login"
-          style={{
-            display: "inline-block",
-            padding: "0.6rem 1.4rem",
-            borderRadius: 8,
-            background: "var(--primary)",
-            color: "#fff",
-          }}
-        >
-          Sign in
-        </Link>
+      <main className="auth-wrap">
+        <div style={{ textAlign: "center", maxWidth: 440 }}>
+          <span
+            className="brand-mark"
+            aria-hidden="true"
+            style={{ margin: "0 auto", width: 56, height: 56, fontSize: "1.2rem" }}
+          >
+            CC
+          </span>
+          <h1 style={{ fontSize: "2rem", marginTop: "1.25rem" }}>CC-Quality</h1>
+          <p className="muted" style={{ marginBottom: "1.75rem" }}>
+            Call Center Quality Scoring System — QA Scorecard.
+          </p>
+          <Link href="/login" className="btn btn-primary">
+            Sign in
+          </Link>
+        </div>
       </main>
     );
   }
@@ -96,9 +88,11 @@ export default async function HomePage() {
   const actions = ACTIONS.filter((a) => ctx.permissions.has(a.permission));
 
   return (
-    <main style={wrap}>
-      <h1 style={{ fontSize: "1.9rem", marginBottom: "0.25rem" }}>Welcome, {firstName}</h1>
-      <p style={{ color: "var(--muted)", marginBottom: "2rem" }}>
+    <main className="page">
+      <h1 className="page-title" style={{ fontSize: "1.9rem" }}>
+        Welcome back, {firstName}
+      </h1>
+      <p className="page-sub" style={{ marginBottom: "2rem" }}>
         Pick up where you left off, or use the sidebar to navigate.
       </p>
 
@@ -110,9 +104,14 @@ export default async function HomePage() {
         }}
       >
         {actions.map((a) => (
-          <Link key={a.href} href={a.href} style={card}>
+          <Link key={a.href} href={a.href} className="card card-interactive qa-card">
+            <span className="qa-arrow" aria-hidden="true">
+              →
+            </span>
             <div style={{ fontWeight: 600, marginBottom: "0.3rem" }}>{a.title}</div>
-            <div style={{ color: "var(--muted)", fontSize: "0.9rem" }}>{a.description}</div>
+            <div className="muted" style={{ fontSize: "0.9rem" }}>
+              {a.description}
+            </div>
           </Link>
         ))}
       </div>

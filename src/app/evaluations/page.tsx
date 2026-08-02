@@ -6,12 +6,6 @@ import { listCurrentEvaluations } from "@/lib/evaluations/query";
 
 export const dynamic = "force-dynamic";
 
-const shell: React.CSSProperties = { maxWidth: 1000, margin: "0 auto", padding: "2.5rem 1.5rem" };
-const cell: React.CSSProperties = {
-  padding: "0.6rem 0.5rem",
-  borderBottom: "1px solid var(--border)",
-};
-
 function fmtDate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
@@ -22,9 +16,9 @@ export default async function EvaluationsPage() {
 
   if (!ctx.permissions.has("evaluations.view")) {
     return (
-      <main style={shell}>
-        <h1 style={{ fontSize: "1.4rem" }}>403 — Forbidden</h1>
-        <p style={{ color: "var(--muted)" }}>You need the “View evaluations” permission.</p>
+      <main className="page page-narrow">
+        <h1 className="page-title">403 — Forbidden</h1>
+        <p className="page-sub">You need the “View evaluations” permission.</p>
       </main>
     );
   }
@@ -33,68 +27,69 @@ export default async function EvaluationsPage() {
   const evaluations = await listCurrentEvaluations(agentScopeFor(ctx));
 
   return (
-    <main style={shell}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <h1 style={{ fontSize: "1.5rem" }}>Evaluations</h1>
+    <main className="page">
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "baseline",
+          gap: "1rem",
+        }}
+      >
+        <div>
+          <h1 className="page-title">Evaluations</h1>
+          <p className="page-sub">The current version of every scored call.</p>
+        </div>
         {ctx.permissions.has("evaluations.create") && (
-          <Link href="/evaluations/new" style={{ color: "var(--accent, #2563eb)" }}>
+          <Link href="/evaluations/new" className="btn btn-primary">
             + New score sheet
           </Link>
         )}
       </div>
-      <p style={{ color: "var(--muted)", marginBottom: "1.5rem" }}>
-        The current version of every scored call. Corrected calls show their latest version; open
-        one to see its full history.
-      </p>
 
-      {evaluations.length === 0 ? (
-        <p style={{ color: "var(--muted)" }}>No evaluations yet.</p>
-      ) : (
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
-          <thead>
-            <tr style={{ textAlign: "left", color: "var(--muted)" }}>
-              <th style={cell}>Call date</th>
-              <th style={cell}>Agent</th>
-              <th style={cell}>QA owner</th>
-              <th style={cell}>Result</th>
-              <th style={cell}>Version</th>
-              <th style={cell}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {evaluations.map((e) => (
-              <tr key={e.evalId}>
-                <td style={cell}>{fmtDate(e.callDate)}</td>
-                <td style={cell}>{e.agent.agentName}</td>
-                <td style={cell}>{e.qaOwner}</td>
-                <td style={cell}>
-                  <span
-                    style={{
-                      color: e.failedScorecard
-                        ? "var(--danger, #b91c1c)"
-                        : "var(--success, #2e7d32)",
-                    }}
-                  >
-                    {e.overallStatus ?? (e.failedScorecard ? "Fail" : "Pass")}
-                  </span>
-                </td>
-                <td style={cell}>
-                  v{e.version}
-                  {e.version > 1 && <span style={{ color: "var(--muted)" }}> · corrected</span>}
-                </td>
-                <td style={cell}>
-                  <Link
-                    href={`/evaluations/${e.evalId}`}
-                    style={{ color: "var(--accent, #2563eb)" }}
-                  >
-                    View
-                  </Link>
-                </td>
+      <div className="card" style={{ marginTop: "1.5rem", padding: "0.5rem 0.75rem" }}>
+        {evaluations.length === 0 ? (
+          <p className="empty" style={{ border: "none" }}>
+            No evaluations yet.
+          </p>
+        ) : (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Call date</th>
+                <th>Agent</th>
+                <th>QA owner</th>
+                <th>Result</th>
+                <th>Version</th>
+                <th></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+            </thead>
+            <tbody>
+              {evaluations.map((e) => (
+                <tr key={e.evalId}>
+                  <td style={{ fontVariantNumeric: "tabular-nums" }}>{fmtDate(e.callDate)}</td>
+                  <td>{e.agent.agentName}</td>
+                  <td className="muted">{e.qaOwner}</td>
+                  <td>
+                    <span
+                      className={e.failedScorecard ? "badge badge-danger" : "badge badge-success"}
+                    >
+                      {e.overallStatus ?? (e.failedScorecard ? "Fail" : "Pass")}
+                    </span>
+                  </td>
+                  <td>
+                    v{e.version}
+                    {e.version > 1 && <span className="muted"> · corrected</span>}
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    <Link href={`/evaluations/${e.evalId}`}>View →</Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </main>
   );
 }

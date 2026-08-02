@@ -12,22 +12,10 @@ import type { LensStatus } from "@/lib/engine/types";
 
 export const dynamic = "force-dynamic";
 
-const shell: React.CSSProperties = { maxWidth: 960, margin: "0 auto", padding: "2.5rem 1.5rem" };
-const card: React.CSSProperties = {
-  border: "1px solid var(--border)",
-  borderRadius: 12,
-  padding: "1.1rem 1.25rem",
-  background: "var(--surface)",
-};
-const cell: React.CSSProperties = {
-  padding: "0.5rem 0.5rem",
-  borderBottom: "1px solid var(--border)",
-};
-
-function statusColor(status: LensStatus | "met" | "miss"): string {
-  if (status === "pass" || status === "met") return "var(--success, #16a34a)";
-  if (status === "fail" || status === "miss") return "var(--danger, #dc2626)";
-  return "var(--muted)";
+function meterColor(status: LensStatus): string {
+  if (status === "pass") return "var(--success)";
+  if (status === "fail") return "var(--danger)";
+  return "var(--faint)";
 }
 
 function ymd(d: Date): string {
@@ -43,14 +31,13 @@ export default async function DashboardPage({
   const ctx = await getAuthContext();
   if (!ctx) redirect("/login");
 
-  // Strict self-scope (FR-38): the dashboard only ever shows the caller's own
-  // agent data. A user not linked to an agent (e.g. an Admin) has no self-view.
+  // Strict self-scope (FR-38): only ever the caller's own agent data.
   const loginId = ctx.user.agentLoginId;
   if (loginId == null) {
     return (
-      <main style={shell}>
-        <h1 style={{ fontSize: "1.5rem" }}>My scorecard</h1>
-        <p style={{ color: "var(--muted)" }}>
+      <main className="page page-narrow">
+        <h1 className="page-title">My scorecard</h1>
+        <p className="empty" style={{ marginTop: "1.5rem" }}>
           Your account isn&rsquo;t linked to an agent record, so there&rsquo;s no personal scorecard
           to show.
         </p>
@@ -69,9 +56,9 @@ export default async function DashboardPage({
 
   if (!config) {
     return (
-      <main style={shell}>
-        <h1 style={{ fontSize: "1.5rem" }}>My scorecard</h1>
-        <p style={{ color: "var(--muted)" }}>
+      <main className="page page-narrow">
+        <h1 className="page-title">My scorecard</h1>
+        <p className="empty" style={{ marginTop: "1.5rem" }}>
           No active configuration, so scores can&rsquo;t be shown.
         </p>
       </main>
@@ -80,9 +67,11 @@ export default async function DashboardPage({
 
   if (periods.length === 0) {
     return (
-      <main style={shell}>
-        <h1 style={{ fontSize: "1.5rem" }}>My scorecard</h1>
-        <p style={{ color: "var(--muted)" }}>No calls have been scored for you yet.</p>
+      <main className="page page-narrow">
+        <h1 className="page-title">My scorecard</h1>
+        <p className="empty" style={{ marginTop: "1.5rem" }}>
+          No calls have been scored for you yet — check back after your first review.
+        </p>
       </main>
     );
   }
@@ -91,7 +80,7 @@ export default async function DashboardPage({
   const { scorecard, calls } = await loadAgentScorecard(config, loginId, selected.id);
 
   return (
-    <main style={shell}>
+    <main className="page">
       <div
         style={{
           display: "flex",
@@ -101,25 +90,25 @@ export default async function DashboardPage({
           gap: "0.5rem",
         }}
       >
-        <h1 style={{ fontSize: "1.6rem", margin: 0 }}>My scorecard</h1>
-        <span style={{ color: "var(--muted)" }}>{agent?.agentName ?? ctx.user.name}</span>
+        <div>
+          <h1 className="page-title" style={{ fontSize: "1.7rem" }}>
+            My scorecard
+          </h1>
+          <p className="page-sub">{agent?.agentName ?? ctx.user.name}</p>
+        </div>
       </div>
 
-      <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", margin: "1rem 0 1.75rem" }}>
+      <div
+        style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", margin: "1.25rem 0 1.75rem" }}
+      >
         {periods.map((p) => {
           const active = p.id === selected.id;
           return (
             <Link
               key={p.id}
               href={`/dashboard?period=${p.label}`}
-              style={{
-                padding: "0.3rem 0.7rem",
-                borderRadius: 999,
-                border: "1px solid var(--border)",
-                background: active ? "var(--nav-active-bg)" : "transparent",
-                color: active ? "var(--nav-active-fg)" : "inherit",
-                fontSize: "0.85rem",
-              }}
+              className={active ? "badge badge-accent" : "badge"}
+              style={{ padding: "0.3rem 0.7rem", fontWeight: 500 }}
             >
               {p.label}
             </Link>
@@ -128,33 +117,51 @@ export default async function DashboardPage({
       </div>
 
       {scorecard.callCount === 0 ? (
-        <p style={{ color: "var(--muted)" }}>No scored calls in {selected.label}.</p>
+        <p className="empty">No scored calls in {selected.label}.</p>
       ) : (
         <div style={{ display: "grid", gap: "1.25rem" }}>
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
               gap: "1.25rem",
             }}
           >
             {/* Rank */}
-            <section style={card}>
-              <div style={{ color: "var(--muted)", fontSize: "0.8rem" }}>Agent rank</div>
-              <div style={{ fontSize: "2.2rem", fontWeight: 700, lineHeight: 1.1 }}>
-                {scorecard.rank}
-                <span style={{ fontSize: "1rem", color: "var(--muted)", fontWeight: 400 }}>
-                  {" "}
+            <section className="card">
+              <div className="stat-label">Agent rank</div>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "baseline",
+                  gap: "0.35rem",
+                  margin: "0.15rem 0 0.9rem",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: "2.6rem",
+                    fontWeight: 700,
+                    letterSpacing: "-0.03em",
+                    lineHeight: 1,
+                  }}
+                >
+                  {scorecard.rank}
+                </span>
+                <span className="muted" style={{ fontSize: "1rem" }}>
                   / 100
                 </span>
+              </div>
+              <div className="meter" aria-hidden="true">
+                <span style={{ width: `${scorecard.rank}%` }} />
               </div>
               <ul
                 style={{
                   listStyle: "none",
                   padding: 0,
-                  margin: "0.75rem 0 0",
+                  margin: "1rem 0 0",
                   display: "grid",
-                  gap: "0.3rem",
+                  gap: "0.45rem",
                 }}
               >
                 {scorecard.rankBySection.map((r) => (
@@ -163,16 +170,17 @@ export default async function DashboardPage({
                     style={{
                       display: "flex",
                       justifyContent: "space-between",
-                      fontSize: "0.85rem",
+                      alignItems: "center",
+                      fontSize: "0.86rem",
                     }}
                   >
                     <span>
-                      {r.code}{" "}
-                      <span style={{ color: "var(--muted)" }}>
-                        ({pct(r.accuracy)} vs {pct(r.benchmark)})
+                      <strong>{r.code}</strong>{" "}
+                      <span className="muted">
+                        {pct(r.accuracy)} vs {pct(r.benchmark)}
                       </span>
                     </span>
-                    <span style={{ color: statusColor(r.met ? "met" : "miss") }}>
+                    <span className={r.met ? "badge badge-success" : "badge badge-danger"}>
                       {r.met ? "met" : "missed"}
                     </span>
                   </li>
@@ -181,82 +189,82 @@ export default async function DashboardPage({
             </section>
 
             {/* Section accuracy (Account lens) */}
-            <section style={card}>
-              <div style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
+            <section className="card">
+              <div className="stat-label" style={{ marginBottom: "0.85rem" }}>
                 Section accuracy {accountLensVerified(config) ? "" : "(provisional)"}
               </div>
-              <table
-                style={{
-                  width: "100%",
-                  borderCollapse: "collapse",
-                  fontSize: "0.88rem",
-                  marginTop: "0.5rem",
-                }}
-              >
-                <tbody>
-                  {scorecard.sectionAccuracy.map((s) => (
-                    <tr key={s.sectionId}>
-                      <td style={cell}>
-                        <strong>{s.code}</strong>{" "}
-                        <span style={{ color: "var(--muted)" }}>{s.label}</span>
-                      </td>
-                      <td style={{ ...cell, textAlign: "right" }}>{pct(s.accuracy)}</td>
-                      <td style={{ ...cell, textAlign: "right", color: "var(--muted)" }}>
-                        {s.benchmark != null ? pct(s.benchmark) : "—"}
-                      </td>
-                      <td style={{ ...cell, textAlign: "right", color: statusColor(s.status) }}>
-                        {s.status === "na" ? "n/a" : s.status}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div style={{ display: "grid", gap: "0.85rem" }}>
+                {scorecard.sectionAccuracy.map((s) => {
+                  const filled = Number.isNaN(s.accuracy) ? 0 : Math.round(s.accuracy * 100);
+                  return (
+                    <div key={s.sectionId}>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          fontSize: "0.86rem",
+                          marginBottom: "0.3rem",
+                        }}
+                      >
+                        <span>
+                          <strong>{s.code}</strong> <span className="muted">{s.label}</span>
+                        </span>
+                        <span style={{ fontVariantNumeric: "tabular-nums" }}>
+                          {pct(s.accuracy)}
+                        </span>
+                      </div>
+                      <div className="meter" aria-hidden="true">
+                        <span style={{ width: `${filled}%`, background: meterColor(s.status) }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </section>
           </div>
 
-          {/* Training recommendations */}
-          <section style={card}>
-            <div style={{ fontWeight: 600, marginBottom: "0.5rem" }}>Training focus</div>
+          {/* Training focus */}
+          <section className="card">
+            <div style={{ fontWeight: 600, marginBottom: "0.7rem" }}>Training focus</div>
             {scorecard.training.length === 0 ? (
-              <p style={{ color: "var(--muted)", margin: 0 }}>
-                No flagged errors this period — nothing to work on. Nice.
+              <p className="muted" style={{ margin: 0 }}>
+                No flagged errors this period — nothing to work on. Nice work. ✦
               </p>
             ) : (
-              <ul style={{ margin: 0, paddingLeft: "1.1rem" }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
                 {scorecard.training.map((t) => (
-                  <li key={t.bucket}>
-                    {t.bucket}{" "}
-                    <span style={{ color: "var(--muted)" }}>
-                      · {t.count} error{t.count === 1 ? "" : "s"}
-                    </span>
-                  </li>
+                  <span
+                    key={t.bucket}
+                    className="badge badge-warning"
+                    style={{ padding: "0.3rem 0.7rem" }}
+                  >
+                    {t.bucket} · {t.count}
+                  </span>
                 ))}
-              </ul>
+              </div>
             )}
           </section>
 
-          {/* Recent calls */}
-          <section style={card}>
-            <div style={{ fontWeight: 600, marginBottom: "0.5rem" }}>
-              Scored calls ({scorecard.callCount})
+          {/* Scored calls */}
+          <section className="card" style={{ padding: "0.5rem 0.5rem 0.25rem" }}>
+            <div style={{ fontWeight: 600, padding: "0.75rem 0.85rem 0.5rem" }}>
+              Scored calls <span className="muted">({scorecard.callCount})</span>
             </div>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.88rem" }}>
+            <table className="table">
               <tbody>
                 {calls.map((c) => (
                   <tr key={c.evalId}>
-                    <td style={cell}>{ymd(c.callDate)}</td>
-                    <td
-                      style={{ ...cell, color: statusColor(c.failedScorecard ? "fail" : "pass") }}
-                    >
-                      {c.overallStatus ?? (c.failedScorecard ? "Fail" : "Pass")}
-                    </td>
-                    <td style={{ ...cell, textAlign: "right" }}>
-                      <Link
-                        href={`/evaluations/${c.evalId}`}
-                        style={{ color: "var(--nav-active-fg)" }}
+                    <td style={{ fontVariantNumeric: "tabular-nums" }}>{ymd(c.callDate)}</td>
+                    <td>
+                      <span
+                        className={c.failedScorecard ? "badge badge-danger" : "badge badge-success"}
                       >
-                        View
-                      </Link>
+                        {c.overallStatus ?? (c.failedScorecard ? "Fail" : "Pass")}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      <Link href={`/evaluations/${c.evalId}`}>View →</Link>
                     </td>
                   </tr>
                 ))}

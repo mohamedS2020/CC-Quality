@@ -10,10 +10,25 @@ export default async function LoginPage() {
   if (user) redirect("/");
 
   return (
-    <main style={{ maxWidth: 380, margin: "0 auto", padding: "4rem 1.5rem" }}>
-      <h1 style={{ fontSize: "1.6rem", marginBottom: "0.25rem" }}>Sign in</h1>
-      <p style={{ color: "var(--muted)", marginBottom: "1.5rem" }}>CC-Quality — QA Scorecard</p>
-      <LoginForm />
+    <main className="auth-wrap">
+      <div className="auth-card">
+        <div style={{ display: "flex", alignItems: "center", gap: "0.7rem" }}>
+          <span className="brand-mark" aria-hidden="true">
+            CC
+          </span>
+          <div>
+            <div style={{ fontWeight: 650 }}>CC-Quality</div>
+            <div style={{ fontSize: "0.8rem", color: "var(--muted)" }}>QA Scorecard</div>
+          </div>
+        </div>
+
+        <h1 style={{ fontSize: "1.45rem", marginTop: "1.6rem" }}>Welcome back</h1>
+        <p className="muted" style={{ marginBottom: "1.5rem" }}>
+          Sign in to continue to your workspace.
+        </p>
+
+        <LoginForm />
+      </div>
     </main>
   );
 }
