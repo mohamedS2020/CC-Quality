@@ -84,6 +84,8 @@ export interface LoadedConfig {
   isActive: boolean;
   roundingDecimals: number;
   paretoCutoff: number;
+  newAgentTenureDays: number;
+  trialWindowDays: number;
   sections: LoadedSection[];
   lenses: LoadedLens[];
   severities: string[];
@@ -184,6 +186,8 @@ function toLoadedConfig(raw: RawFullConfig): LoadedConfig {
     isActive: raw.isActive,
     roundingDecimals: raw.roundingDecimals,
     paretoCutoff: raw.paretoCutoff,
+    newAgentTenureDays: raw.newAgentTenureDays,
+    trialWindowDays: raw.trialWindowDays,
     sections,
     lenses,
     severities: raw.severities.map((s) => s.label),

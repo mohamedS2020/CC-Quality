@@ -18,6 +18,8 @@ export const baselineConfigInput: ConfigInput = {
   description: "Verified baseline (Appendix B/D) — version 1.",
   roundingDecimals: 2,
   paretoCutoff: 0.8,
+  newAgentTenureDays: 90,
+  trialWindowDays: 90,
   severities: ["Soft Skills", "Business Critical"],
   trainingBuckets: ["Telephone etiquette"],
   sections: [

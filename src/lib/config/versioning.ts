@@ -92,6 +92,8 @@ export async function createConfigVersion(
           description: input.description ?? null,
           roundingDecimals: input.roundingDecimals ?? 2,
           paretoCutoff: input.paretoCutoff ?? 0.8,
+          newAgentTenureDays: input.newAgentTenureDays ?? 90,
+          trialWindowDays: input.trialWindowDays ?? 90,
           createdById: options.createdById ?? null,
         },
       });
@@ -219,6 +221,8 @@ export function buildInputFromLoaded(loaded: LoadedConfig): ConfigInput {
     description: null,
     roundingDecimals: loaded.roundingDecimals,
     paretoCutoff: loaded.paretoCutoff,
+    newAgentTenureDays: loaded.newAgentTenureDays,
+    trialWindowDays: loaded.trialWindowDays,
     severities: [...loaded.severities],
     trainingBuckets: [...loaded.trainingBuckets],
     sections: loaded.sections.map((section) => ({

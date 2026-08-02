@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getAuthContext } from "@/lib/auth";
+import { agentScopeFor } from "@/lib/auth/scope";
 import { listCurrentEvaluations } from "@/lib/evaluations/query";
 
 export const dynamic = "force-dynamic";
@@ -28,7 +29,8 @@ export default async function EvaluationsPage() {
     );
   }
 
-  const evaluations = await listCurrentEvaluations();
+  // Agents see only their own calls (FR-9); Admins/Moderators see all.
+  const evaluations = await listCurrentEvaluations(agentScopeFor(ctx));
 
   return (
     <main style={shell}>

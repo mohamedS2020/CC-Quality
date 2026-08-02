@@ -64,6 +64,8 @@ export interface ConfigInput {
   description?: string | null;
   roundingDecimals?: number;
   paretoCutoff?: number;
+  newAgentTenureDays?: number;
+  trialWindowDays?: number;
   sections: SectionInput[];
   lenses: LensInput[];
   severities: string[];

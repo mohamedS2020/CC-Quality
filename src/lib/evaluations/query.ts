@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/client";
+import { evaluationScopeWhere, type AgentScope } from "@/lib/auth/scope";
 
 // A flagged line resolved down to its section/attribute labels, for display.
 const lineInclude = {
@@ -19,11 +20,13 @@ export type EvaluationVersion = Prisma.EvaluationGetPayload<{ include: typeof ve
 
 /**
  * The CURRENT version of every call (FR-14) — superseded rows are hidden, so a
- * corrected call appears once, at its latest version. Newest calls first.
+ * corrected call appears once, at its latest version. Newest calls first. A
+ * `scope` restricts the rows to an Agent's own calls (FR-9); omit it for the
+ * Admin/Moderator view.
  */
-export function listCurrentEvaluations() {
+export function listCurrentEvaluations(scope?: AgentScope) {
   return prisma.evaluation.findMany({
-    where: { supersededAt: null },
+    where: { supersededAt: null, ...(scope ? evaluationScopeWhere(scope) : {}) },
     orderBy: [{ callDate: "desc" }, { creationDate: "desc" }],
     include: {
       agent: { select: { agentName: true } },

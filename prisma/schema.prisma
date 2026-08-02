@@ -101,6 +101,8 @@ model ScorecardConfig {
   isActive         Boolean  @default(false) // exactly one active version (enforced in task 4.2)
   roundingDecimals Int      @default(2) @map("rounding_decimals") // published % precision (Appendix H)
   paretoCutoff     Float    @default(0.8) @map("pareto_cutoff") // 80/20 Pareto cutoff (Appendix H)
+  newAgentTenureDays Int    @default(90) @map("new_agent_tenure_days") // tenure < this ⇒ status "new" (FR-13)
+  trialWindowDays    Int    @default(90) @map("trial_window_days") // within this of join_date ⇒ in_trial (FR-13)
   createdAt        DateTime @default(now()) @map("created_at")
   createdById      Int?     @map("created_by_id") // author of this config version (FR-45 audit)
 

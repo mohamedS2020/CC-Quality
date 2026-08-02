@@ -81,6 +81,18 @@ export function validateConfigInput(input: ConfigInput): ValidationResult {
   if (input.paretoCutoff != null && !inRange01(input.paretoCutoff)) {
     add("paretoCutoff", "Pareto cutoff must be between 0 and 1.");
   }
+  if (
+    input.newAgentTenureDays != null &&
+    (!Number.isInteger(input.newAgentTenureDays) || input.newAgentTenureDays < 0)
+  ) {
+    add("newAgentTenureDays", "New-agent tenure threshold must be a non-negative integer of days.");
+  }
+  if (
+    input.trialWindowDays != null &&
+    (!Number.isInteger(input.trialWindowDays) || input.trialWindowDays < 0)
+  ) {
+    add("trialWindowDays", "Trial window must be a non-negative integer of days.");
+  }
   if (input.sections.length === 0) add("sections", "At least one section is required.");
 
   // --- Reference lists ---

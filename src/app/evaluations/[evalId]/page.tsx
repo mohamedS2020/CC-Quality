@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getAuthContext } from "@/lib/auth";
+import { agentScopeFor } from "@/lib/auth/scope";
 import { getEvaluationHistory, type EvaluationVersion } from "@/lib/evaluations/query";
 import { displayMobile } from "@/lib/pii";
 
@@ -93,6 +94,10 @@ export default async function EvaluationDetailPage({
   if (!history || history.length === 0) notFound();
 
   const current = history[history.length - 1];
+
+  // Self-scope (FR-9): an Agent may only open their own call.
+  const scope = agentScopeFor(ctx);
+  if (scope.kind === "self" && current.agentLoginId !== scope.loginId) notFound();
 
   return (
     <main style={shell}>
