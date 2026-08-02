@@ -141,7 +141,7 @@ const NAV: NavGroup[] = [
       {
         href: "/admin/config",
         label: "Configuration",
-        permission: "config.view",
+        permission: "config.edit",
         icon: <IconSliders />,
       },
       {

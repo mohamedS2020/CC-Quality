@@ -30,7 +30,7 @@ const ACTIONS: QuickAction[] = [
     href: "/admin/config",
     title: "Configuration",
     description: "Edit the scorecard rubric, lenses, and policy.",
-    permission: "config.view",
+    permission: "config.edit",
   },
   {
     href: "/admin/periods",
