@@ -1,12 +1,27 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { SESSION_COOKIE_NAME } from "./config";
 
-const baseOptions = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "lax" as const,
-  path: "/",
-};
+/**
+ * Whether the current request arrived over HTTPS. We must NOT hardcode `secure`
+ * to `NODE_ENV`: a production build served over plain HTTP (e.g. `next start` on
+ * a LAN address or any non-localhost origin) would then set a `Secure` cookie
+ * the browser refuses to store — the session appears to work on the login render
+ * but is dropped on the next navigation. Deriving it from the request keeps the
+ * cookie storable over HTTP and `Secure` behind an HTTPS proxy.
+ */
+async function requestIsHttps(): Promise<boolean> {
+  const proto = (await headers()).get("x-forwarded-proto");
+  return proto?.split(",")[0]?.trim() === "https";
+}
+
+async function cookieOptions() {
+  return {
+    httpOnly: true,
+    secure: await requestIsHttps(),
+    sameSite: "lax" as const,
+    path: "/",
+  };
+}
 
 /**
  * Set the session cookie as a *session-scoped* cookie (no maxAge → cleared when
@@ -16,12 +31,12 @@ const baseOptions = {
  */
 export async function setSessionCookie(token: string): Promise<void> {
   const store = await cookies();
-  store.set(SESSION_COOKIE_NAME, token, baseOptions);
+  store.set(SESSION_COOKIE_NAME, token, await cookieOptions());
 }
 
 export async function clearSessionCookie(): Promise<void> {
   const store = await cookies();
-  store.set(SESSION_COOKIE_NAME, "", { ...baseOptions, maxAge: 0 });
+  store.set(SESSION_COOKIE_NAME, "", { ...(await cookieOptions()), maxAge: 0 });
 }
 
 export async function readSessionToken(): Promise<string | null> {
