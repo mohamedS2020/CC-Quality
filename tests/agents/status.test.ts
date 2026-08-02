@@ -44,4 +44,18 @@ describe("deriveAgentStanding", () => {
       inTrial: false,
     });
   });
+
+  it("honours the reference date so reporting can derive 'as of' a period start (FR-13)", () => {
+    // Joined 100 days before now: "old" today, but "new" as of a period that
+    // started 30 days ago (tenure was only 70 then). This is the path task 9
+    // dashboards use to report status against a period rather than today.
+    const joinedAt = daysBefore(100);
+    expect(deriveAgentStanding(joinedAt, config, asOf)).toMatchObject({ status: "old" });
+
+    const periodStart = daysBefore(30);
+    expect(deriveAgentStanding(joinedAt, config, periodStart)).toMatchObject({
+      status: "new",
+      inTrial: true,
+    });
+  });
 });

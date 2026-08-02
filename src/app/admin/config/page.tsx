@@ -10,6 +10,10 @@ export const dynamic = "force-dynamic";
 
 const EMPTY_DRAFT: ConfigInput = {
   name: "New configuration",
+  roundingDecimals: 2,
+  paretoCutoff: 0.8,
+  newAgentTenureDays: 90,
+  trialWindowDays: 90,
   sections: [],
   lenses: [],
   severities: [],

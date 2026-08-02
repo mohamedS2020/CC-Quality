@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { getAuthContext } from "@/lib/auth";
 import { SessionProvider, type SessionValue } from "@/lib/auth/session-context";
+import { AppShell } from "./app-shell";
 
 export const metadata: Metadata = {
   title: "CC-Quality — QA Scorecard",
@@ -27,7 +28,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   return (
     <html lang="en">
       <body>
-        <SessionProvider value={session}>{children}</SessionProvider>
+        <SessionProvider value={session}>
+          <AppShell>{children}</AppShell>
+        </SessionProvider>
       </body>
     </html>
   );

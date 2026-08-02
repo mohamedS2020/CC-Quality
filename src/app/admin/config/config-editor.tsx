@@ -7,6 +7,7 @@ import { SectionsEditor } from "./sections-editor";
 import { RubricEditor } from "./rubric-editor";
 import { LensesEditor } from "./lenses-editor";
 import { DictionaryEditor } from "./dictionary-editor";
+import { PolicyEditor, type PolicyFields } from "./policy-editor";
 import { saveConfigAction, type SaveConfigResult } from "./actions";
 
 const input: React.CSSProperties = {
@@ -18,13 +19,14 @@ const input: React.CSSProperties = {
   minWidth: 260,
 };
 
-const TABS = ["sections", "rubric", "lenses", "dictionary"] as const;
+const TABS = ["sections", "rubric", "lenses", "dictionary", "policy"] as const;
 type Tab = (typeof TABS)[number];
 const TAB_LABELS: Record<Tab, string> = {
   sections: "Sections",
   rubric: "Rubric tree",
   lenses: "Lenses & benchmarks",
   dictionary: "Dictionary",
+  policy: "Policy",
 };
 
 export function ConfigEditor({ initialDraft }: { initialDraft: ConfigInput }) {
@@ -52,6 +54,11 @@ export function ConfigEditor({ initialDraft }: { initialDraft: ConfigInput }) {
 
   const setTrainingBuckets = (trainingBuckets: string[]) => {
     setDraft((d) => ({ ...d, trainingBuckets }));
+    setResult(null);
+  };
+
+  const setPolicy = (patch: Partial<PolicyFields>) => {
+    setDraft((d) => ({ ...d, ...patch }));
     setResult(null);
   };
 
@@ -120,6 +127,7 @@ export function ConfigEditor({ initialDraft }: { initialDraft: ConfigInput }) {
             onSectionsChange={setSections}
           />
         )}
+        {tab === "policy" && <PolicyEditor policy={draft} onChange={setPolicy} />}
       </div>
 
       {!validation.ok && (

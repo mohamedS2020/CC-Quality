@@ -6,6 +6,14 @@
   --primary: #2563eb;
   --success: #16a34a;
   --danger: #dc2626;
+
+  /* App-shell surfaces + nav states */
+  --surface: #f9fafb;
+  --surface-2: #f3f4f6;
+  --nav-active-bg: rgba(37, 99, 235, 0.1);
+  --nav-active-fg: #1d4ed8;
+  --nav-hover-bg: rgba(17, 24, 39, 0.045);
+  --accent-soft: rgba(37, 99, 235, 0.12);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -17,6 +25,13 @@
     --primary: #3b82f6;
     --success: #22c55e;
     --danger: #ef4444;
+
+    --surface: #111214;
+    --surface-2: #17181b;
+    --nav-active-bg: rgba(59, 130, 246, 0.16);
+    --nav-active-fg: #93c5fd;
+    --nav-hover-bg: rgba(255, 255, 255, 0.06);
+    --accent-soft: rgba(59, 130, 246, 0.18);
   }
 }
 
