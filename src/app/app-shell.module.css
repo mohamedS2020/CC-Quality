@@ -104,6 +104,21 @@
   white-space: nowrap;
 }
 
+.badge {
+  margin-left: auto;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .itemActive,
 .itemActive:hover {
   background: var(--nav-active-bg);

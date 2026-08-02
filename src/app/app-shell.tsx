@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { UserRole } from "@prisma/client";
 import { useSession } from "@/lib/auth/session-context";
 import type { PermissionKey } from "@/lib/auth/permissions";
 import { logoutAction } from "./login/actions";
@@ -95,6 +96,22 @@ const IconShield = ({ size }: IconProps) =>
     </>,
     size,
   );
+const IconChart = ({ size }: IconProps) =>
+  svg(
+    <>
+      <path d="M5 20V11M12 20V5M19 20v-6" />
+      <path d="M3 20h18" />
+    </>,
+    size,
+  );
+const IconBell = ({ size }: IconProps) =>
+  svg(
+    <>
+      <path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6" />
+      <path d="M10 20a2 2 0 0 0 4 0" />
+    </>,
+    size,
+  );
 const IconMenu = ({ size }: IconProps) => svg(<path d="M4 6h16M4 12h16M4 18h16" />, size);
 const IconLogout = ({ size }: IconProps) =>
   svg(
@@ -107,11 +124,29 @@ const IconLogout = ({ size }: IconProps) =>
   );
 
 // --- Nav model -------------------------------------------------------------
-type NavItem = { href: string; label: string; permission?: PermissionKey; icon: ReactNode };
+type NavItem = {
+  href: string;
+  label: string;
+  permission?: PermissionKey;
+  roles?: UserRole[];
+  icon: ReactNode;
+};
 type NavGroup = { label?: string; items: NavItem[] };
 
 const NAV: NavGroup[] = [
-  { items: [{ href: "/", label: "Home", icon: <IconHome /> }] },
+  {
+    items: [
+      { href: "/", label: "Home", icon: <IconHome /> },
+      {
+        href: "/dashboard",
+        label: "My scorecard",
+        permission: "reports.view",
+        roles: ["AGENT"],
+        icon: <IconChart />,
+      },
+      { href: "/notifications", label: "Notifications", roles: ["AGENT"], icon: <IconBell /> },
+    ],
+  },
   {
     label: "Scoring",
     items: [
@@ -181,7 +216,13 @@ function computeActive(pathname: string, hrefs: string[]): string | null {
   return best;
 }
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({
+  children,
+  unreadCount = 0,
+}: {
+  children: ReactNode;
+  unreadCount?: number;
+}) {
   const { user, permissions } = useSession();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -204,7 +245,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const granted = new Set(permissions);
   const groups = NAV.map((g) => ({
     ...g,
-    items: g.items.filter((i) => !i.permission || granted.has(i.permission)),
+    items: g.items.filter(
+      (i) =>
+        (!i.permission || granted.has(i.permission)) && (!i.roles || i.roles.includes(user.role)),
+    ),
   })).filter((g) => g.items.length > 0);
 
   const activeHref = computeActive(
@@ -246,6 +290,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                   >
                     {item.icon}
                     <span className={styles.itemLabel}>{item.label}</span>
+                    {item.href === "/notifications" && unreadCount > 0 && (
+                      <span className={styles.badge}>{unreadCount}</span>
+                    )}
                   </Link>
                 );
               })}

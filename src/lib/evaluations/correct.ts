@@ -1,5 +1,6 @@
 import { loadConfigById } from "@/lib/config/loader";
 import { prisma } from "@/lib/db/client";
+import { notifyCorrectionPosted } from "@/lib/notifications/service";
 import { scoreCall } from "@/lib/engine/score";
 import { isPeriodEditable, resolveMonthlyPeriod } from "@/lib/periods/period";
 import { buildEvaluationData, type CreateEvaluationInput } from "./create";
@@ -80,6 +81,14 @@ export async function correctEvaluation(
       }),
     });
   });
+
+  // Notify the agent's linked user of the correction (best-effort, FR-45).
+  await notifyCorrectionPosted(
+    input.agentLoginId,
+    created.evalId,
+    created.overallStatus,
+    input.callDate,
+  );
 
   return { ok: true, evalId: created.evalId };
 }

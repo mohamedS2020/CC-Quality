@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import type { LoadedConfig } from "@/lib/config/loader";
 import { prisma } from "@/lib/db/client";
 import { scoreCall } from "@/lib/engine/score";
+import { notifyScorePosted } from "@/lib/notifications/service";
 import { isPeriodEditable, resolveMonthlyPeriod } from "@/lib/periods/period";
 import { maskMobile } from "@/lib/pii";
 
@@ -123,6 +124,14 @@ export async function createEvaluation(
       version: 1,
     }),
   });
+
+  // Notify the agent's linked user (best-effort; never fails the score, FR-39).
+  await notifyScorePosted(
+    input.agentLoginId,
+    evaluation.evalId,
+    evaluation.overallStatus,
+    input.callDate,
+  );
 
   return { ok: true, evalId: evaluation.evalId };
 }
