@@ -279,3 +279,12 @@
     pointer-events: auto;
   }
 }
+
+/* Print (used by report "Export PDF"): drop the chrome, keep the content. */
+@media print {
+  .sidebar,
+  .topbar,
+  .overlay {
+    display: none !important;
+  }
+}

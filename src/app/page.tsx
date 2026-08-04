@@ -15,6 +15,12 @@ const ACTIONS: QuickAction[] = [
     permission: "reports.view",
   },
   {
+    href: "/reports",
+    title: "Reports",
+    description: "Section-vs-benchmark, agent comparison, and KPI trends.",
+    permission: "reports.view",
+  },
+  {
     href: "/evaluations/new",
     title: "Score a call",
     description: "Open a fresh score sheet — the engine derives every figure.",

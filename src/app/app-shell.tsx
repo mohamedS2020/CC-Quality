@@ -104,6 +104,15 @@ const IconChart = ({ size }: IconProps) =>
     </>,
     size,
   );
+const IconTrend = ({ size }: IconProps) =>
+  svg(
+    <>
+      <path d="M4 19h16" />
+      <path d="M4 15l4-5 4 3 5-7" />
+      <path d="M17 6h3v3" />
+    </>,
+    size,
+  );
 const IconBell = ({ size }: IconProps) =>
   svg(
     <>
@@ -189,7 +198,12 @@ const NAV: NavGroup[] = [
       { href: "/admin/users", label: "Users", permission: "users.manage", icon: <IconShield /> },
     ],
   },
-  // "Insights" (dashboards/reports, reports.view) slots in here at task 9.
+  {
+    label: "Insights",
+    items: [
+      { href: "/reports", label: "Reports", permission: "reports.view", icon: <IconTrend /> },
+    ],
+  },
 ];
 
 function initials(name: string): string {

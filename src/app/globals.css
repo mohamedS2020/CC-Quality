@@ -395,6 +395,19 @@ a:hover {
 .muted {
   color: var(--muted);
 }
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  .page {
+    max-width: none;
+    padding: 0.5rem 0;
+  }
+  .card {
+    break-inside: avoid;
+  }
+}
 .empty {
   color: var(--muted);
   text-align: center;
