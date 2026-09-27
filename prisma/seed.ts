@@ -104,52 +104,53 @@ async function seedBaselineConfig(): Promise<{ created: boolean; version?: numbe
  * non-versioned `Setting` store (editing them must never mint a config
  * version), so they are seeded here rather than in the baseline config.
  *
- * Kept in the order they are stored/displayed. Admins can edit the list in
- * Configuration → Operational settings; re-seeding never overwrites their edits.
+ * Alphabetical, which is the order the dropdown shows them in. Admins can edit
+ * the list in Configuration → Operational settings; re-seeding never overwrites
+ * their edits.
  */
 const CALL_TYPES = [
   "Access Permission",
+  "Business proposal Request",
+  "Cancellation Request",
+  "Careers Inquire",
   "Cheque Inquire",
   "Client's Data update",
+  "Community Request",
   "Construction Phase",
   "Contract Inquiry",
+  "Dropped Call",
+  "EOI Request",
   "Facility Request",
   "Financial Inquiry",
   "General inquiry",
+  "Guest Entry Request",
+  "Inheritance",
+  "Insurance Deposit",
   "Legal Request",
   "Maintenance Deposit",
   "Meeting Reservation",
   "Mob.Application",
   "Modification Request",
-  "Project Update informations",
-  "Resale Request",
-  "Sales Lead Request",
-  "Season Operation",
-  "Unit Handover Date",
-  "Unit Handover Phase",
-  "Unit Transfer",
-  "Wrong number",
-  "Business proposal Request",
-  "Cancellation Request",
-  "Careers Inquire",
-  "Community Request",
-  "Dropped Call",
-  "EOI Request",
-  "Guest Entry Request",
-  "Inheritance",
-  "Insurance Deposit",
   "Not related",
   "NPS",
   "Other",
+  "Project Update informations",
   "Relinquishment Request",
+  "Resale Request",
+  "Sales Lead Request",
+  "Season Operation",
   "Security Request",
   "Silent Call",
   "Site tour Request",
   "Snag List",
   "Survey Task",
+  "Unit Handover Date",
+  "Unit Handover Phase",
   "Unit Relocation",
+  "Unit Transfer",
   "Unit Upgrade",
   "Work Permits Request",
+  "Wrong number",
 ];
 
 /**
