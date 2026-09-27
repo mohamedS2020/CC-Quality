@@ -99,12 +99,85 @@ async function seedBaselineConfig(): Promise<{ created: boolean; version?: numbe
   return { created: true, version };
 }
 
+/**
+ * The evaluation form's Call type dropdown options. These live in the
+ * non-versioned `Setting` store (editing them must never mint a config
+ * version), so they are seeded here rather than in the baseline config.
+ *
+ * Kept in the order they are stored/displayed. Admins can edit the list in
+ * Configuration → Operational settings; re-seeding never overwrites their edits.
+ */
+const CALL_TYPES = [
+  "Access Permission",
+  "Cheque Inquire",
+  "Client's Data update",
+  "Construction Phase",
+  "Contract Inquiry",
+  "Facility Request",
+  "Financial Inquiry",
+  "General inquiry",
+  "Legal Request",
+  "Maintenance Deposit",
+  "Meeting Reservation",
+  "Mob.Application",
+  "Modification Request",
+  "Project Update informations",
+  "Resale Request",
+  "Sales Lead Request",
+  "Season Operation",
+  "Unit Handover Date",
+  "Unit Handover Phase",
+  "Unit Transfer",
+  "Wrong number",
+  "Business proposal Request",
+  "Cancellation Request",
+  "Careers Inquire",
+  "Community Request",
+  "Dropped Call",
+  "EOI Request",
+  "Guest Entry Request",
+  "Inheritance",
+  "Insurance Deposit",
+  "Not related",
+  "NPS",
+  "Other",
+  "Relinquishment Request",
+  "Security Request",
+  "Silent Call",
+  "Site tour Request",
+  "Snag List",
+  "Survey Task",
+  "Unit Relocation",
+  "Unit Upgrade",
+  "Work Permits Request",
+];
+
+/**
+ * Seed the Call type options. Idempotent and non-destructive: if the setting
+ * already exists it is left exactly as the admin edited it.
+ */
+async function seedCallTypes(): Promise<{ created: boolean; count: number }> {
+  const existing = await prisma.setting.findUnique({ where: { key: "call_types" } });
+  if (existing) {
+    const value = existing.value;
+    return { created: false, count: Array.isArray(value) ? value.length : 0 };
+  }
+  await prisma.setting.create({ data: { key: "call_types", value: CALL_TYPES } });
+  return { created: true, count: CALL_TYPES.length };
+}
+
 async function main() {
   const agents = await seedDemoAgents();
   const permissions = await seedPermissions();
   const admin = await seedAdminUser();
   const config = await seedBaselineConfig();
+  const callTypes = await seedCallTypes();
   console.log(`✔ Seed complete — ${agents} demo agents, ${permissions} permissions upserted.`);
+  console.log(
+    callTypes.created
+      ? `✔ Call types seeded (${callTypes.count} options).`
+      : `• Call types already present (${callTypes.count}) — left unchanged.`,
+  );
   console.log(
     config.created
       ? `✔ Baseline config seeded as version ${config.version} (active).`

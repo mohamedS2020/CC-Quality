@@ -7,7 +7,8 @@ try {
     const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_.]*)\s*=\s*(.*)\s*$/);
     if (!m) continue;
     let v = m[2].trim();
-    if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);
+    if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'")))
+      v = v.slice(1, -1);
     if (process.env[m[1]] === undefined) process.env[m[1]] = v;
   }
 } catch (e) {
@@ -21,6 +22,7 @@ async function main() {
     evaluations: await prisma.evaluation.count(),
     lines: await prisma.evaluationLine.count(),
     notifications: await prisma.notification.count(),
+    periods: await prisma.period.count(),
   };
   console.log("BEFORE:", JSON.stringify(before));
 
@@ -28,15 +30,30 @@ async function main() {
   const evals = await prisma.evaluation.deleteMany({});
   console.log(`deleted evaluations: ${evals.count}`);
 
+  // ...and the periods they were bucketed into. Periods are find-or-open, so the
+  // next scored call re-creates whichever month it belongs to.
+  const periods = await prisma.period.deleteMany({});
+  console.log(`deleted periods: ${periods.count}`);
+
   const after = {
     evaluations: await prisma.evaluation.count(),
     lines: await prisma.evaluationLine.count(),
     notifications: await prisma.notification.count(),
+    periods: await prisma.period.count(),
   };
   console.log("AFTER:", JSON.stringify(after));
 
   // Confirm what was left untouched.
-  console.log("KEPT — agents:", await prisma.agent.count(), " users:", await prisma.user.count(), " periods:", await prisma.period.count());
+  console.log(
+    "KEPT — agents:",
+    await prisma.agent.count(),
+    " users:",
+    await prisma.user.count(),
+    " configs:",
+    await prisma.scorecardConfig.count(),
+    " settings:",
+    await prisma.setting.count(),
+  );
 }
 
 main()
