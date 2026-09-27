@@ -1,6 +1,8 @@
 /** Serializable rubric passed from the server page to the client form. */
 export interface ScoreSheetRubric {
   sections: ScoreSheetSection[];
+  /** Config-driven options for the Call type dropdown. */
+  callTypes: string[];
 }
 
 export interface ScoreSheetSection {
@@ -39,5 +41,6 @@ export interface EvaluationDraft {
   monitoringType?: string;
   callType?: string;
   coachingDate?: string;
+  comment?: string;
   flaggedReasonIds: number[];
 }

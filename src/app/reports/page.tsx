@@ -5,9 +5,8 @@ import { loadActiveConfig } from "@/lib/config/loader";
 import { isLensProvisional } from "@/lib/engine/lenses";
 import { reportAgents, reportPeriods, teamLeads } from "@/lib/reports/filters";
 import { loadReport, pickLens, type Report } from "@/lib/reports/metrics";
-import { previousPeriodId, resolveScope } from "@/lib/reports/resolve";
+import { previousPeriodId, resolveScope, resolveWindow } from "@/lib/reports/resolve";
 import { ReportFilters, type FilterValues } from "./report-filters";
-import { PrintButton } from "./print-button";
 import { KpiTiles } from "./_charts/kpi-tiles";
 import { SectionBenchmarkChart } from "./_charts/section-benchmark-chart";
 import { AgentComparison } from "./_charts/agent-comparison";
@@ -53,6 +52,8 @@ export default async function ReportsPage({
     agent?: string;
     period?: string;
     lens?: string;
+    from?: string;
+    to?: string;
   }>;
 }) {
   const params = await searchParams;
@@ -78,13 +79,19 @@ export default async function ReportsPage({
   if (periods.length === 0) return shell(<p className="empty">No calls have been scored yet.</p>);
 
   const selectedPeriod = periods.find((p) => p.label === params.period) ?? periods[0];
-  const prevId = previousPeriodId(periods, selectedPeriod.id);
+  // A custom From/To range wins over the period preset; bad input falls back to it.
+  const { window, invalid } = resolveWindow(params, {
+    periodId: selectedPeriod.id,
+    previousPeriodId: previousPeriodId(periods, selectedPeriod.id),
+    label: selectedPeriod.label,
+  });
 
-  const lens = pickLens(config, params.lens);
+  const isAgent = ctx.user.role === "AGENT";
+  // Agents are pinned to the Agent lens (their own view); everyone else may pick.
+  const lens = pickLens(config, isAgent ? "agent" : params.lens);
   if (!lens) return shell(<p className="empty">No lenses are configured.</p>);
 
   const canExport = ctx.permissions.has("reports.export");
-  const isAgent = ctx.user.role === "AGENT";
   const sr = resolveScope(params, { role: ctx.user.role, agentLoginId: ctx.user.agentLoginId });
 
   if (!sr.ok && sr.reason === "no-agent-link") {
@@ -109,11 +116,11 @@ export default async function ReportsPage({
     agentLoginId: sr.agentLoginId,
     period: selectedPeriod.label,
     lens: lens.key,
+    from: window.from,
+    to: window.to,
   };
 
-  const report: Report | null = sr.ok
-    ? await loadReport(config, lens, sr.scope, selectedPeriod.id, prevId)
-    : null;
+  const report: Report | null = sr.ok ? await loadReport(config, lens, sr.scope, window) : null;
 
   const scopeLabel =
     sr.kind === "account"
@@ -122,15 +129,28 @@ export default async function ReportsPage({
         ? `Team ${sr.tl ?? "—"}`
         : `Agent ${options.agents.find((a) => a.loginId === sr.agentLoginId)?.agentName ?? sr.agentLoginId ?? "—"}`;
 
+  // Exports and drill-downs must inherit the SAME window, or "the data behind the
+  // report" would silently revert to the month preset.
   const exportQuery = new URLSearchParams();
   exportQuery.set("scope", values.scope);
-  exportQuery.set("period", values.period);
+  if (window.from && window.to) {
+    exportQuery.set("from", window.from);
+    exportQuery.set("to", window.to);
+  } else {
+    exportQuery.set("period", values.period);
+  }
   exportQuery.set("lens", values.lens);
   if (values.scope === "tl" && values.tl) exportQuery.set("tl", values.tl);
   if (values.scope === "agent" && values.agentLoginId != null)
     exportQuery.set("agent", String(values.agentLoginId));
 
-  const sectionMeta = config.sections.map((s) => ({ sectionId: s.id, code: s.code }));
+  const callCount = report?.kpis.callCount ?? 0;
+  const sectionMeta = config.sections.map((s) => {
+    const m = report?.sections.find((x) => x.sectionId === s.id);
+    const perCall = m && callCount > 0 ? Math.max(1, Math.round(m.denominator / callCount)) : 1;
+    return { sectionId: s.id, code: s.code, perCall };
+  });
+  const detailBase = exportQuery.toString();
   const showAgentCharts = !!report && report.agentComparison.length > 1;
 
   return (
@@ -146,7 +166,7 @@ export default async function ReportsPage({
         <div>
           <h1 className="page-title">Reports</h1>
           <p className="page-sub">
-            {scopeLabel} · {selectedPeriod.label}
+            {scopeLabel} · {window.label}
           </p>
         </div>
         {canExport && report && (
@@ -163,16 +183,36 @@ export default async function ReportsPage({
             >
               Excel
             </Link>
-            <PrintButton />
+            <Link
+              href={`/reports/export?format=pdf&${exportQuery}`}
+              className="btn btn-ghost btn-sm"
+            >
+              PDF
+            </Link>
           </div>
         )}
       </div>
 
       <div className="no-print" style={{ margin: "1.25rem 0" }}>
-        <ReportFilters options={options} values={values} lockScope={isAgent} />
+        <ReportFilters options={options} values={values} lockScope={isAgent} lockLens={isAgent} />
       </div>
 
-      {report && report.lensProvisional && (
+      {invalid && (
+        <p className="badge badge-warning" style={{ marginBottom: "1rem" }}>
+          {invalid} Showing {selectedPeriod.label} instead.
+        </p>
+      )}
+
+      {report && report.unresolvedFlags > 0 && (
+        <p className="badge badge-danger" style={{ marginBottom: "1rem" }}>
+          {report.unresolvedFlags} flagged{" "}
+          {report.unresolvedFlags === 1 ? "error is" : "errors are"} no longer in the active rubric,
+          so the figures below understate errors. Restore the removed reason(s) in Configuration, or
+          re-score the affected calls.
+        </p>
+      )}
+
+      {!isAgent && report && report.lensProvisional && (
         <p className="badge badge-warning" style={{ marginBottom: "1rem" }}>
           Provisional lens — this basis isn’t reconciled yet
         </p>
@@ -181,10 +221,15 @@ export default async function ReportsPage({
       {!sr.ok ? (
         <p className="empty">{sr.message}</p>
       ) : report && report.kpis.callCount === 0 ? (
-        <p className="empty">No scored calls for this scope in {selectedPeriod.label}.</p>
+        <p className="empty">No scored calls for this scope in {window.label}.</p>
       ) : report ? (
         <div style={{ display: "grid", gap: "1.5rem" }}>
-          <KpiTiles report={report} decimals={config.roundingDecimals} />
+          <KpiTiles
+            report={report}
+            decimals={config.roundingDecimals}
+            explain={!isAgent}
+            baseQuery={detailBase}
+          />
 
           <section className="card">
             <div
@@ -198,7 +243,18 @@ export default async function ReportsPage({
               <strong>Section accuracy vs benchmark</strong>
               <Legend />
             </div>
-            <SectionBenchmarkChart sections={report.sections} decimals={config.roundingDecimals} />
+            <SectionBenchmarkChart
+              sections={report.sections}
+              decimals={config.roundingDecimals}
+              callCount={report.kpis.callCount}
+              explain={!isAgent}
+              baseQuery={detailBase}
+            />
+            <p style={{ margin: "0.5rem 0 0", fontSize: "0.85rem" }}>
+              <Link href={`/reports/detail?${detailBase}&focus=overview`}>
+                View all underlying call data →
+              </Link>
+            </p>
           </section>
 
           {showAgentCharts && (
@@ -212,15 +268,31 @@ export default async function ReportsPage({
                   rows={report.agentComparison}
                   sections={sectionMeta}
                   decimals={config.roundingDecimals}
+                  explain={!isAgent}
+                  baseQuery={detailBase}
                 />
               </section>
 
               <section className="card">
-                <strong>Leaderboard</strong>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "baseline",
+                  }}
+                >
+                  <strong>Leaderboard</strong>
+                  <Link
+                    href={`/reports/detail?${detailBase}&focus=leaderboard`}
+                    style={{ fontSize: "0.85rem" }}
+                  >
+                    How ranks are computed →
+                  </Link>
+                </div>
                 <p className="muted" style={{ fontSize: "0.85rem", margin: "0.1rem 0 0.9rem" }}>
-                  Agent rank (0–100), best first.
+                  Agent rank (0–100), best first. Click an agent for their breakdown.
                 </p>
-                <Leaderboard rows={report.leaderboard} />
+                <Leaderboard rows={report.leaderboard} baseQuery={detailBase} />
               </section>
             </>
           )}

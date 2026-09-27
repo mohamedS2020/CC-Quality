@@ -1,4 +1,4 @@
-import { displayMobile, maskMobile } from "@/lib/pii";
+import { displayMobile, maskMobile, phoneSearchDigits } from "@/lib/pii";
 
 describe("maskMobile (FR-19)", () => {
   it("keeps only the last 4 digits, masking the rest", () => {
@@ -25,5 +25,22 @@ describe("displayMobile", () => {
     expect(displayMobile(null)).toBe("—");
     expect(displayMobile(undefined)).toBe("—");
     expect(displayMobile("")).toBe("—");
+  });
+});
+
+describe("phoneSearchDigits", () => {
+  it("reduces a full number to its last 4 digits (matches the masked suffix)", () => {
+    expect(phoneSearchDigits("01007005658")).toBe("5658");
+    expect(maskMobile("01007005658").endsWith(phoneSearchDigits("01007005658"))).toBe(true);
+  });
+
+  it("accepts the last 4 directly and ignores non-digits", () => {
+    expect(phoneSearchDigits("5658")).toBe("5658");
+    expect(phoneSearchDigits(" 56-58 ")).toBe("5658");
+  });
+
+  it("is empty when there are no digits", () => {
+    expect(phoneSearchDigits("")).toBe("");
+    expect(phoneSearchDigits("abc")).toBe("");
   });
 });

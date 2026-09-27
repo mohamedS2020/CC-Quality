@@ -22,10 +22,9 @@ const row: React.CSSProperties = {
   display: "flex",
   gap: "0.5rem",
   alignItems: "center",
-  flexWrap: "wrap",
 };
 
-function StringList({
+export function StringList({
   title,
   items,
   onChange,
@@ -44,7 +43,7 @@ function StringList({
           <div key={i} style={row}>
             <input
               className="input"
-              style={{ minWidth: 220 }}
+              style={{ flex: 1, minWidth: 0 }}
               aria-label={`${idPrefix}-${i}`}
               value={value}
               onChange={(e) => onChange(items.map((x, j) => (j === i ? e.target.value : x)))}
@@ -53,6 +52,7 @@ function StringList({
               type="button"
               className="btn btn-sm btn-ghost"
               aria-label={`${idPrefix}-${i}-remove`}
+              style={{ flexShrink: 0 }}
               onClick={() => onChange(items.filter((_, j) => j !== i))}
             >
               ×

@@ -3,12 +3,9 @@ import { redirect } from "next/navigation";
 import { getAuthContext } from "@/lib/auth";
 import { agentScopeFor } from "@/lib/auth/scope";
 import { listCurrentEvaluations } from "@/lib/evaluations/query";
+import { EvaluationsList, type EvalRow } from "./evaluations-list";
 
 export const dynamic = "force-dynamic";
-
-function fmtDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
 
 export default async function EvaluationsPage() {
   const ctx = await getAuthContext();
@@ -25,6 +22,21 @@ export default async function EvaluationsPage() {
 
   // Agents see only their own calls (FR-9); Admins/Moderators see all.
   const evaluations = await listCurrentEvaluations(agentScopeFor(ctx));
+
+  // Phone-number search is for Admins/Moderators only (agents are self-scoped).
+  const canSearch = ctx.user.role !== "AGENT";
+
+  const rows: EvalRow[] = evaluations.map((e) => ({
+    evalId: e.evalId,
+    callDate: e.callDate.toISOString().slice(0, 10),
+    agentName: e.agent.agentName,
+    qaOwner: e.qaOwner,
+    status: e.overallStatus ?? (e.failedScorecard ? "Fail" : "Pass"),
+    failed: e.failedScorecard,
+    configVersion: e.config.version,
+    corrected: e.version > 1,
+    phoneMasked: e.mobileMasked,
+  }));
 
   return (
     <main className="page">
@@ -47,53 +59,7 @@ export default async function EvaluationsPage() {
         )}
       </div>
 
-      <div className="card" style={{ marginTop: "1.5rem", padding: "0.5rem 0.75rem" }}>
-        {evaluations.length === 0 ? (
-          <p className="empty" style={{ border: "none" }}>
-            No evaluations yet.
-          </p>
-        ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Call date</th>
-                <th>Agent</th>
-                <th>QA owner</th>
-                <th>Result</th>
-                <th>Config</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {evaluations.map((e) => (
-                <tr key={e.evalId}>
-                  <td style={{ fontVariantNumeric: "tabular-nums" }}>{fmtDate(e.callDate)}</td>
-                  <td>{e.agent.agentName}</td>
-                  <td className="muted">{e.qaOwner}</td>
-                  <td>
-                    <span
-                      className={e.failedScorecard ? "badge badge-danger" : "badge badge-success"}
-                    >
-                      {e.overallStatus ?? (e.failedScorecard ? "Fail" : "Pass")}
-                    </span>
-                  </td>
-                  <td>
-                    <span title="Scorecard configuration version">v{e.config.version}</span>
-                    {e.version > 1 && (
-                      <span className="badge badge-accent" style={{ marginLeft: "0.4rem" }}>
-                        corrected
-                      </span>
-                    )}
-                  </td>
-                  <td style={{ textAlign: "right" }}>
-                    <Link href={`/evaluations/${e.evalId}`}>View →</Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+      <EvaluationsList rows={rows} canSearch={canSearch} />
     </main>
   );
 }

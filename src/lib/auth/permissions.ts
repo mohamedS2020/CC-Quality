@@ -77,6 +77,11 @@ export const PERMISSIONS = [
     label: "Lock periods",
     description: "Lock and reopen scoring periods.",
   },
+  {
+    key: "coaching.send",
+    label: "Send coaching emails",
+    description: "Send documented coaching emails to agents for failed calls.",
+  },
 ] as const;
 
 /** Union of every valid permission key, derived from the catalog above. */

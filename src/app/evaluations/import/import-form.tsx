@@ -3,15 +3,21 @@
 import { useState, useTransition } from "react";
 import {
   runImportAction,
+  saveReasonAliasesAction,
   validateImportAction,
   type ImportRunResult,
+  type ReasonOption,
   type ValidateResult,
 } from "./actions";
+
+const encode = (r: ReasonOption) => `${r.attribute}|||${r.reason}`;
+const keyOf = (sectionCode: string, sample: string) => `${sectionCode}|||${sample}`;
 
 export function ImportForm() {
   const [file, setFile] = useState<File | null>(null);
   const [validation, setValidation] = useState<ValidateResult | null>(null);
   const [result, setResult] = useState<ImportRunResult | null>(null);
+  const [selections, setSelections] = useState<Record<string, string>>({});
   const [pending, startTransition] = useTransition();
 
   const formData = () => {
@@ -20,10 +26,21 @@ export function ImportForm() {
     return data;
   };
 
+  const applyValidation = (v: ValidateResult) => {
+    setValidation(v);
+    if (v.ok && v.wide) {
+      const init: Record<string, string> = {};
+      for (const u of v.wide.unmapped) {
+        if (u.suggestions[0]) init[keyOf(u.sectionCode, u.sample)] = encode(u.suggestions[0]);
+      }
+      setSelections(init);
+    }
+  };
+
   const validate = () =>
     startTransition(async () => {
       setResult(null);
-      setValidation(await validateImportAction(formData()));
+      applyValidation(await validateImportAction(formData()));
     });
 
   const runImport = () =>
@@ -31,8 +48,24 @@ export function ImportForm() {
       setResult(await runImportAction(formData()));
     });
 
+  const saveMappings = () =>
+    startTransition(async () => {
+      if (!(validation?.ok && validation.wide)) return;
+      const entries = validation.wide.unmapped.flatMap((u) => {
+        const v = selections[keyOf(u.sectionCode, u.sample)];
+        if (!v) return [];
+        const [attribute, reason] = v.split("|||");
+        return [{ sectionCode: u.sectionCode, source: u.sample, attribute, reason }];
+      });
+      const saved = await saveReasonAliasesAction(entries);
+      if (saved.ok) applyValidation(await validateImportAction(formData()));
+      else setResult({ ok: false, message: saved.message });
+    });
+
   const report = validation?.ok ? validation.validation : null;
-  const canImport = !!report && report.ready > 0 && !result?.ok;
+  const wide = validation?.ok ? validation.wide : undefined;
+  const hasUnmapped = !!wide && wide.unmapped.length > 0;
+  const canImport = !!report && report.ready > 0 && !hasUnmapped && !result?.ok;
 
   return (
     <div style={{ display: "grid", gap: "1.25rem" }}>
@@ -41,8 +74,10 @@ export function ImportForm() {
           Import evaluations
         </h1>
         <p className="page-sub">
-          Upload a CSV or .xlsx (one row per flagged error, grouped by <code>eval_id</code>).
-          Validate first to preview problems; scores are derived on import.
+          Upload a CSV or .xlsx. Both layouts are auto-detected: the long format (one row per
+          flagged error, grouped by <code>eval_id</code>) and the wide, call-per-row format (a
+          column per section holding the flagged reason). Validate first; scores are derived on
+          import.
         </p>
       </div>
 
@@ -68,12 +103,69 @@ export function ImportForm() {
         >
           {pending ? "Working…" : "Validate"}
         </button>
+        {wide && (
+          <span className="muted" style={{ fontSize: "0.85rem" }}>
+            Detected call-per-row format · {wide.callCount} calls
+          </span>
+        )}
       </div>
 
       {validation && !validation.ok && (
         <p role="alert" style={{ color: "var(--danger)" }}>
           {validation.message}
         </p>
+      )}
+
+      {hasUnmapped && wide && (
+        <div className="card" style={{ borderColor: "var(--warning)" }}>
+          <strong>{wide.unmapped.length} reason(s) need mapping</strong>
+          <p className="muted" style={{ fontSize: "0.85rem", margin: "0.15rem 0 0.75rem" }}>
+            These source phrases don’t match the config. Pick the matching reason (best guess is
+            pre-selected); the mapping is saved so future imports resolve automatically.
+          </p>
+          <div style={{ display: "grid", gap: "0.6rem" }}>
+            {wide.unmapped.map((u) => {
+              const k = keyOf(u.sectionCode, u.sample);
+              const options =
+                wide.reasonOptions.find((o) => o.sectionCode === u.sectionCode)?.options ?? [];
+              return (
+                <div
+                  key={k}
+                  style={{ display: "flex", gap: "0.6rem", alignItems: "center", flexWrap: "wrap" }}
+                >
+                  <span className="badge">{u.sectionCode}</span>
+                  <span style={{ flex: "1 1 220px", minWidth: 0 }}>
+                    “{u.sample}” <span className="muted">×{u.count}</span>
+                  </span>
+                  <span aria-hidden>→</span>
+                  <select
+                    className="select"
+                    aria-label={`map-${k}`}
+                    style={{ flex: "1 1 260px", minWidth: 0 }}
+                    value={selections[k] ?? ""}
+                    onChange={(e) => setSelections((s) => ({ ...s, [k]: e.target.value }))}
+                  >
+                    <option value="">— choose reason —</option>
+                    {options.map((o, i) => (
+                      <option key={i} value={encode(o)}>
+                        {o.attribute} — {o.reason}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              );
+            })}
+          </div>
+          <button
+            type="button"
+            className="btn btn-primary"
+            style={{ marginTop: "0.85rem" }}
+            onClick={saveMappings}
+            disabled={pending}
+          >
+            Save mappings &amp; re-validate
+          </button>
+        </div>
       )}
 
       {report && (
@@ -97,7 +189,7 @@ export function ImportForm() {
             onClick={runImport}
             disabled={!canImport || pending}
           >
-            Import {report.ready} evaluation(s)
+            {hasUnmapped ? "Map the reasons above first" : `Import ${report.ready} evaluation(s)`}
           </button>
         </div>
       )}

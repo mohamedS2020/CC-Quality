@@ -4,6 +4,7 @@ import { getAuthContext } from "@/lib/auth";
 import { deriveAgentStanding } from "@/lib/agents/status";
 import { loadActiveConfig } from "@/lib/config/loader";
 import { agentRepository } from "@/lib/db/repositories";
+import { AgentsList, type AgentRow } from "./agents-list";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,20 @@ export default async function AgentsPage() {
   }
 
   const [agents, config] = await Promise.all([agentRepository.list(), loadActiveConfig()]);
+
+  const rows: AgentRow[] = agents.map((a) => {
+    const standing = config ? deriveAgentStanding(a.joinDate, config) : null;
+    return {
+      loginId: a.loginId,
+      agentName: a.agentName,
+      tlName: a.tlName,
+      joinDate: ymd(a.joinDate),
+      status: standing?.status ?? null,
+      tenureDays: standing?.tenureDays ?? null,
+      inTrial: standing?.inTrial ?? false,
+      active: a.active,
+    };
+  });
 
   return (
     <main className="page">
@@ -50,61 +65,7 @@ export default async function AgentsPage() {
         </Link>
       </div>
 
-      <div className="card" style={{ marginTop: "1.5rem", padding: "0.5rem 0.75rem" }}>
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Login ID</th>
-              <th>Agent</th>
-              <th>Team leader</th>
-              <th>Join date</th>
-              <th>Tenure</th>
-              <th>Trial</th>
-              <th>Status</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {agents.map((a) => {
-              const standing = config ? deriveAgentStanding(a.joinDate, config) : null;
-              return (
-                <tr key={a.loginId}>
-                  <td style={{ fontVariantNumeric: "tabular-nums" }}>{a.loginId}</td>
-                  <td>{a.agentName}</td>
-                  <td className="muted">{a.tlName}</td>
-                  <td style={{ fontVariantNumeric: "tabular-nums" }}>{ymd(a.joinDate)}</td>
-                  <td>
-                    {standing ? (
-                      <>
-                        {standing.status} <span className="muted">({standing.tenureDays}d)</span>
-                      </>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td>
-                    {standing?.inTrial ? (
-                      <span className="badge badge-warning">In trial</span>
-                    ) : (
-                      <span className="muted">—</span>
-                    )}
-                  </td>
-                  <td>
-                    {a.active ? (
-                      <span className="badge badge-success">Active</span>
-                    ) : (
-                      <span className="badge">Inactive</span>
-                    )}
-                  </td>
-                  <td style={{ textAlign: "right" }}>
-                    <Link href={`/admin/agents/${a.loginId}`}>Edit →</Link>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      <AgentsList rows={rows} />
     </main>
   );
 }

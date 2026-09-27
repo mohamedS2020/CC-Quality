@@ -1,10 +1,11 @@
 import type { SectionMetric } from "@/lib/reports/metrics";
+import { countLabel, opportunityHelp } from "./format";
 
 /**
  * Chart #1 — section accuracy vs benchmark (Appendix F). A column per section on
- * a FIXED 0–100% axis, coloured by pass/fail status (the number is always shown,
- * so identity never rests on colour alone), with a dashed benchmark reference
- * line per section. `≥ benchmark` passes.
+ * a FIXED 0–100% axis, coloured by pass/fail status (the number + count are
+ * always shown), with a dashed benchmark line. Each column links to its
+ * drill-down when `baseQuery` is given. `≥ benchmark` passes.
  */
 
 const W = 720;
@@ -26,9 +27,15 @@ function statusColor(s: SectionMetric["status"]): string {
 export function SectionBenchmarkChart({
   sections,
   decimals,
+  callCount,
+  explain = true,
+  baseQuery,
 }: {
   sections: SectionMetric[];
   decimals: number;
+  callCount: number;
+  explain?: boolean;
+  baseQuery?: string;
 }) {
   const pct = (v: number | undefined) =>
     v == null || Number.isNaN(v) ? "n/a" : `${(v * 100).toFixed(decimals)}%`;
@@ -64,11 +71,18 @@ export function SectionBenchmarkChart({
         const barX = cx - barW / 2;
         const acc = Number.isNaN(s.accuracy) ? 0 : s.accuracy;
         const top = y(acc);
-        return (
-          <g key={s.sectionId}>
+        const frac = countLabel(s.numerator, s.denominator);
+        const href = baseQuery
+          ? `/reports/detail?${baseQuery}&focus=section&sectionId=${s.sectionId}`
+          : undefined;
+        const content = (
+          <>
             <title>
               {`${s.code} — ${s.label}\nAccuracy ${pct(s.accuracy)}` +
-                (s.benchmark != null ? ` · benchmark ${pct(s.benchmark)} · ${s.status}` : "")}
+                (s.benchmark != null ? ` · benchmark ${pct(s.benchmark)} · ${s.status}` : "") +
+                (explain && s.denominator > 0
+                  ? `\n${opportunityHelp(s.code, s.numerator, s.denominator, callCount)}`
+                  : "")}
             </title>
             {!Number.isNaN(s.accuracy) && (
               <rect
@@ -110,7 +124,19 @@ export function SectionBenchmarkChart({
             >
               {s.code}
             </text>
-          </g>
+            {frac && (
+              <text x={cx} y={H - padB + 32} textAnchor="middle" fontSize={10} fill="var(--muted)">
+                ({frac})
+              </text>
+            )}
+          </>
+        );
+        return href ? (
+          <a key={s.sectionId} href={href} style={{ cursor: "pointer" }}>
+            {content}
+          </a>
+        ) : (
+          <g key={s.sectionId}>{content}</g>
         );
       })}
     </svg>

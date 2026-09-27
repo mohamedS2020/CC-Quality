@@ -27,6 +27,8 @@ export interface CreateEvaluationInput {
   monitoringType?: string;
   callType?: string;
   coachingDate?: Date;
+  /** Scorer's free-text notes on the call (shown to the agent). */
+  comment?: string;
   flaggedReasonIds: number[];
 }
 
@@ -77,6 +79,7 @@ export function buildEvaluationData(
     monitoringType: input.monitoringType ?? null,
     callType: input.callType ?? null,
     coachingDate: input.coachingDate ?? null,
+    comment: input.comment?.trim() ? input.comment.trim() : null,
     version: version.version,
     correctionOfId: version.correctionOfId ?? null,
     correctedById: version.correctedById ?? null,

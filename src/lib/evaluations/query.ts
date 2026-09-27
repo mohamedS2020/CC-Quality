@@ -12,6 +12,7 @@ const lineInclude = {
 const versionInclude = {
   agent: true,
   correctedBy: { select: { id: true, name: true } },
+  coachingSentBy: { select: { name: true } },
   config: { select: { version: true } },
   lines: { include: lineInclude },
 } satisfies Prisma.EvaluationInclude;

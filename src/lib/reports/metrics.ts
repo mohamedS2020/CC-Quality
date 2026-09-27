@@ -1,5 +1,5 @@
 import { LensBasis, type Prisma } from "@prisma/client";
-import type { LoadedConfig, LoadedLens } from "@/lib/config/loader";
+import { resolveStoredFlags, type LoadedConfig, type LoadedLens } from "@/lib/config/loader";
 import { prisma } from "@/lib/db/client";
 import { computeLens, isLensProvisional } from "@/lib/engine/lenses";
 import { computeAgentRank } from "@/lib/engine/rank";
@@ -23,12 +23,34 @@ import type { LensStatus, ScoredCall } from "@/lib/engine/types";
 export type ReportScope =
   { kind: "account" } | { kind: "tl"; tlName: string } | { kind: "agent"; loginId: number };
 
+/**
+ * One queryable stretch of time: either an exact period bucket (the month
+ * presets) or a free date range the user picked.
+ *
+ * Ranges are HALF-OPEN — `[from, toExclusive)`. `Evaluation.callDate` is a
+ * timestamp, not a DATE, so an inclusive `lte: to` would silently drop any call
+ * timestamped during the final day. Both bounds are UTC midnights, matching how
+ * `callDate` is written and how `monthPeriodBounds` buckets periods.
+ */
+export type TimeSlice =
+  { kind: "period"; periodId: number } | { kind: "range"; from: Date; toExclusive: Date };
+
+/** The time half of a report's `where` (composes with `scopeWhere`). */
+export function sliceWhere(slice: TimeSlice): Prisma.EvaluationWhereInput {
+  return slice.kind === "period"
+    ? { periodId: slice.periodId }
+    : { callDate: { gte: slice.from, lt: slice.toExclusive } };
+}
+
 /** One in-scope call reduced to what the engine needs. */
 export interface ReportCall {
   agentLoginId: number;
   agentName: string;
+  /** Already resolved into THIS config's ids (see `resolveStoredFlags`). */
   reasonIds: number[];
   failedScorecard: boolean;
+  /** Stored flags no longer present in this config's rubric (absent = none). */
+  unresolved?: number;
 }
 
 export interface SectionMetric {
@@ -36,6 +58,9 @@ export interface SectionMetric {
   code: string;
   label: string;
   accuracy: number;
+  /** Counts behind `accuracy` (passing = denominator − numerator), for "% (x/y)". */
+  numerator: number;
+  denominator: number;
   benchmark: number | undefined;
   status: LensStatus;
   /** Change in accuracy vs the previous period (fraction, +/-), or null. */
@@ -45,6 +70,8 @@ export interface SectionMetric {
 export interface AgentSectionCell {
   sectionId: number;
   accuracy: number;
+  numerator: number;
+  denominator: number;
   status: LensStatus;
 }
 export interface AgentComparisonRow {
@@ -64,6 +91,8 @@ export interface LeaderboardRow {
 export interface ReportKpis {
   callCount: number;
   agentCount: number;
+  /** Calls that did not fail the scorecard — the numerator behind passRate. */
+  passCount: number;
   passRate: number;
   passRateDelta: number | null;
 }
@@ -75,6 +104,12 @@ export interface Report {
   kpis: ReportKpis;
   lensKey: string;
   lensProvisional: boolean;
+  /**
+   * Stored flags that no longer exist in this config's rubric. Non-zero means
+   * the figures UNDERSTATE errors and the page must say so rather than present
+   * them as fact.
+   */
+  unresolvedFlags: number;
 }
 
 const mean = (xs: number[]): number =>
@@ -121,6 +156,8 @@ export function buildReport(
       code: s.code,
       label: s.label,
       accuracy,
+      numerator: cur?.numerator ?? 0,
+      denominator: cur?.denominator ?? 0,
       benchmark: cur?.benchmark,
       status: cur?.status ?? "na",
       delta,
@@ -142,7 +179,13 @@ export function buildReport(
       const lr = computeLens(lens, config, scored);
       const cells: AgentSectionCell[] = config.sections.map((s) => {
         const r = lr.sections.get(s.id);
-        return { sectionId: s.id, accuracy: r?.accuracy ?? Number.NaN, status: r?.status ?? "na" };
+        return {
+          sectionId: s.id,
+          accuracy: r?.accuracy ?? Number.NaN,
+          numerator: r?.numerator ?? 0,
+          denominator: r?.denominator ?? 0,
+          status: r?.status ?? "na",
+        };
       });
       return {
         loginId,
@@ -181,6 +224,7 @@ export function buildReport(
     kpis: {
       callCount: current.length,
       agentCount: byAgent.size,
+      passCount: current.filter((c) => !c.failedScorecard).length,
       passRate,
       passRateDelta:
         previous.length > 0 && !Number.isNaN(passRate) && !Number.isNaN(prevPassRate)
@@ -189,12 +233,13 @@ export function buildReport(
     },
     lensKey: lens.key,
     lensProvisional: isLensProvisional(lens.basis),
+    unresolvedFlags: current.reduce((sum, c) => sum + (c.unresolved ?? 0), 0),
   };
 }
 
 // --- DB loading -------------------------------------------------------------
 
-function scopeWhere(scope: ReportScope): Prisma.EvaluationWhereInput {
+export function scopeWhere(scope: ReportScope): Prisma.EvaluationWhereInput {
   switch (scope.kind) {
     case "agent":
       return { agentLoginId: scope.loginId };
@@ -205,35 +250,51 @@ function scopeWhere(scope: ReportScope): Prisma.EvaluationWhereInput {
   }
 }
 
-async function loadCalls(scope: ReportScope, periodId: number): Promise<ReportCall[]> {
+async function loadCalls(
+  config: LoadedConfig,
+  scope: ReportScope,
+  slice: TimeSlice,
+): Promise<ReportCall[]> {
   const rows = await prisma.evaluation.findMany({
-    where: { supersededAt: null, periodId, ...scopeWhere(scope) },
+    where: { supersededAt: null, ...sliceWhere(slice), ...scopeWhere(scope) },
     select: {
       agentLoginId: true,
       failedScorecard: true,
       agent: { select: { agentName: true } },
-      lines: { select: { errorReasonId: true } },
+      // Read the STABLE key, not the version-scoped id: these rows may have been
+      // scored under an older config version whose ids no longer exist.
+      lines: { select: { errorReason: { select: { key: true } } } },
     },
   });
-  return rows.map((r) => ({
-    agentLoginId: r.agentLoginId,
-    agentName: r.agent.agentName,
-    failedScorecard: r.failedScorecard,
-    reasonIds: r.lines.map((l) => l.errorReasonId),
-  }));
+  return rows.map((r) => {
+    const { reasonIds, unresolved } = resolveStoredFlags(
+      config,
+      r.lines.map((l) => l.errorReason.key),
+    );
+    return {
+      agentLoginId: r.agentLoginId,
+      agentName: r.agent.agentName,
+      failedScorecard: r.failedScorecard,
+      reasonIds,
+      unresolved,
+    };
+  });
 }
 
-/** Load + build a report for a scope × period (with the previous period for deltas). */
+/**
+ * Load + build a report for a scope × time window. `window.previous` is the
+ * comparison slice the deltas are measured against (the preceding period, or the
+ * equally-long stretch before a custom range); null means "no prior data".
+ */
 export async function loadReport(
   config: LoadedConfig,
   lens: LoadedLens,
   scope: ReportScope,
-  periodId: number,
-  previousPeriodId: number | null,
+  window: { current: TimeSlice; previous: TimeSlice | null },
 ): Promise<Report> {
   const [current, previous] = await Promise.all([
-    loadCalls(scope, periodId),
-    previousPeriodId != null ? loadCalls(scope, previousPeriodId) : Promise.resolve([]),
+    loadCalls(config, scope, window.current),
+    window.previous ? loadCalls(config, scope, window.previous) : Promise.resolve([]),
   ]);
   return buildReport(config, lens, current, previous);
 }

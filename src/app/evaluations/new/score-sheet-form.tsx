@@ -15,15 +15,21 @@ export function ScoreSheetForm({
   rubric,
   agents,
   defaultQaOwner,
+  canCoach = false,
 }: {
   rubric: ScoreSheetRubric;
   agents: ScoreSheetAgent[];
   defaultQaOwner: string;
+  canCoach?: boolean;
 }) {
   const [meta, setMeta] = useState<MetaState>({ ...EMPTY_META, qaOwner: defaultQaOwner });
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [result, setResult] = useState<CreateEvaluationResult | null>(null);
   const [pending, startTransition] = useTransition();
+
+  const [coachEmail, setCoachEmail] = useState(false);
+  const [coachOpen, setCoachOpen] = useState(false);
+  const [coachText, setCoachText] = useState("");
 
   const setField = (key: keyof MetaState, value: string) =>
     setMeta((m) => ({ ...m, [key]: value }));
@@ -38,9 +44,18 @@ export function ScoreSheetForm({
 
   const canSubmit = metaIsComplete(meta);
 
-  const submit = () => {
+  const doSubmit = (coaching?: string) => {
     const draft: EvaluationDraft = { ...metaToFields(meta), flaggedReasonIds: [...selected] };
-    startTransition(async () => setResult(await createEvaluationAction(draft)));
+    startTransition(async () => {
+      setResult(await createEvaluationAction(draft, coaching));
+      setCoachOpen(false);
+    });
+  };
+
+  // With the coaching option ticked, ask for the coaching text before saving.
+  const onSave = () => {
+    if (coachEmail) setCoachOpen(true);
+    else doSubmit();
   };
 
   return (
@@ -63,17 +78,68 @@ export function ScoreSheetForm({
         toggleReason={toggleReason}
       />
 
+      {canCoach && (
+        <label style={{ display: "flex", gap: "0.5rem", alignItems: "center", fontSize: "0.9rem" }}>
+          <input
+            type="checkbox"
+            checked={coachEmail}
+            onChange={(e) => setCoachEmail(e.target.checked)}
+          />
+          Send a coaching email on save (only if the call fails)
+        </label>
+      )}
+
+      {coachOpen && (
+        <div className="card" style={{ maxWidth: 560, display: "grid", gap: "0.6rem" }}>
+          <strong>Coaching message to the agent</strong>
+          <p className="muted" style={{ margin: 0, fontSize: "0.85rem" }}>
+            Added to the coaching email with the call data and failed sections. Sent only if the
+            call fails.
+          </p>
+          <textarea
+            className="input"
+            aria-label="coaching-text"
+            rows={4}
+            value={coachText}
+            onChange={(e) => setCoachText(e.target.value)}
+            placeholder="Write the coaching guidance for the agent…"
+          />
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              disabled={pending || coachText.trim() === ""}
+              onClick={() => doSubmit(coachText)}
+            >
+              Save &amp; send coaching
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              disabled={pending}
+              onClick={() => setCoachOpen(false)}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
         <button
           type="button"
           className="btn btn-primary"
-          onClick={submit}
-          disabled={!canSubmit || pending}
+          onClick={onSave}
+          disabled={!canSubmit || pending || coachOpen}
         >
           {pending ? "Saving…" : "Save score sheet"}
         </button>
         {result?.ok && (
-          <span style={{ color: "var(--success)" }}>Saved evaluation {result.evalId}.</span>
+          <span style={{ color: "var(--success)" }}>
+            Saved evaluation {result.evalId}.{result.coaching === "sent" && " Coaching email sent."}
+            {result.coaching === "passed" && " Call passed — no coaching email sent."}
+            {result.coaching === "error" && " (Coaching email could not be sent.)"}
+          </span>
         )}
         {result && !result.ok && (
           <span style={{ color: "var(--danger)" }} role="alert">

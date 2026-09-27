@@ -250,6 +250,37 @@ model TrainingBucket {
   @@map("training_buckets")
 }
 
+// ---------------------------------------------------------------------------
+// SETTINGS — non-versioned key/value store (JSON) for editable operational
+// lists that are NOT part of the reproducible config version: the call-type
+// dropdown options and the coaching-email CC recipients. Editing these never
+// mints a new config version (they don't affect scoring reproducibility).
+// ---------------------------------------------------------------------------
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
+}
+
+// Reason "Data Standard" (like AgentAlias, §13) — maps a source spreadsheet's
+// error-reason wording to a canonical config reason, so wide-format call sheets
+// import despite vocabulary drift. Non-versioned; stores the canonical LABELS
+// (section/attribute/reason) so it survives config re-versioning.
+model ReasonAlias {
+  id               Int      @id @default(autoincrement())
+  sectionCode      String   @map("section_code")
+  sourceNormalized String   @map("source_normalized") // normalized source text (match key)
+  sourceSample     String   @map("source_sample") // a raw example, for display
+  attribute        String // canonical attribute label
+  reason           String // canonical error-reason label
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@unique([sectionCode, sourceNormalized])
+  @@map("reason_aliases")
+}
+
 // One dictionary row per rubric leaf (optional metadata for an ErrorReason).
 model DictionaryEntry {
   id               Int     @id @default(autoincrement())
@@ -314,6 +345,7 @@ model Evaluation {
   monitoringType  String?   @map("monitoring_type")
   callType        String?   @map("call_type")
   coachingDate    DateTime? @map("coaching_date") @db.Date
+  comment         String?   // scorer's free-text notes on the call (shown to the agent)
 
   // Derived, section-agnostic (written by the engine at save; never entered)
   sumOfCriticals  Int     @default(0) @map("sum_of_criticals")
@@ -335,14 +367,21 @@ model Evaluation {
   correctedById    Int?      @map("corrected_by_id") // who authored this correction (null = original)
   correctionReason String?   @map("correction_reason")
 
-  agent         Agent            @relation(fields: [agentLoginId], references: [loginId])
-  config        ScorecardConfig  @relation(fields: [configId], references: [id])
-  period        Period?          @relation(fields: [periodId], references: [id], onDelete: SetNull)
-  correctionOf  Evaluation?      @relation("EvaluationVersions", fields: [correctionOfId], references: [evalId], onDelete: NoAction, onUpdate: NoAction)
-  corrections   Evaluation[]     @relation("EvaluationVersions")
-  correctedBy   User?            @relation("EvaluationCorrectedBy", fields: [correctedById], references: [id], onDelete: SetNull)
-  lines         EvaluationLine[]
-  notifications Notification[]
+  // Coaching email (FR — documented action). One per VERSION: a correction is a
+  // new row, so it can be coached again. Records who sent it, when, and the text.
+  coachingSentAt   DateTime? @map("coaching_sent_at")
+  coachingSentById Int?      @map("coaching_sent_by_id")
+  coachingText     String?   @map("coaching_text")
+
+  agent          Agent            @relation(fields: [agentLoginId], references: [loginId])
+  config         ScorecardConfig  @relation(fields: [configId], references: [id])
+  period         Period?          @relation(fields: [periodId], references: [id], onDelete: SetNull)
+  correctionOf   Evaluation?      @relation("EvaluationVersions", fields: [correctionOfId], references: [evalId], onDelete: NoAction, onUpdate: NoAction)
+  corrections    Evaluation[]     @relation("EvaluationVersions")
+  correctedBy    User?            @relation("EvaluationCorrectedBy", fields: [correctedById], references: [id], onDelete: SetNull)
+  coachingSentBy User?            @relation("EvaluationCoachedBy", fields: [coachingSentById], references: [id], onDelete: SetNull)
+  lines          EvaluationLine[]
+  notifications  Notification[]
 
   @@index([agentLoginId])
   @@index([callDate])
@@ -398,6 +437,7 @@ model User {
   lockedPeriods        Period[]          @relation("PeriodLockedBy")
   reopenedPeriods      Period[]          @relation("PeriodReopenedBy")
   correctedEvaluations Evaluation[]      @relation("EvaluationCorrectedBy")
+  coachedEvaluations   Evaluation[]      @relation("EvaluationCoachedBy")
   notifications        Notification[]
   sessions             Session[]
 

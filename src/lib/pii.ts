@@ -22,3 +22,12 @@ export function maskMobile(raw: string): string {
 export function displayMobile(masked: string | null | undefined): string {
   return masked && masked.trim() !== "" ? masked : "—";
 }
+
+/**
+ * Reduce a phone-number search query to the last 4 digits — the only part kept
+ * unmasked in storage — so a search can match the stored masked value by suffix.
+ * Full number or last-4 both work; non-digits are ignored. Empty when no digits.
+ */
+export function phoneSearchDigits(query: string): string {
+  return query.replace(/\D/g, "").slice(-4);
+}

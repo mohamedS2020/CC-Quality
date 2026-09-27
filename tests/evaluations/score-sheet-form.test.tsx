@@ -41,6 +41,7 @@ const rubric: ScoreSheetRubric = {
       ],
     },
   ],
+  callTypes: ["Inbound", "Outbound"],
 };
 const agents: ScoreSheetAgent[] = [{ loginId: 5001, agentName: "Test Agent" }];
 

@@ -1,8 +1,11 @@
 import type { ScoreSheetRubric } from "@/app/evaluations/new/types";
 import type { LoadedConfig } from "@/lib/config/loader";
 
-/** Flatten a loaded config into the serializable rubric the score sheet renders. */
-export function rubricFromConfig(config: LoadedConfig): ScoreSheetRubric {
+/**
+ * Flatten a loaded config into the serializable rubric the score sheet renders.
+ * `callTypes` comes from the non-versioned settings store (not the config).
+ */
+export function rubricFromConfig(config: LoadedConfig, callTypes: string[]): ScoreSheetRubric {
   return {
     sections: config.sections.map((s) => ({
       id: s.id,
@@ -18,5 +21,6 @@ export function rubricFromConfig(config: LoadedConfig): ScoreSheetRubric {
         })),
       })),
     })),
+    callTypes,
   };
 }

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { LeaderboardRow } from "@/lib/reports/metrics";
 
 /**
@@ -20,18 +21,24 @@ const TIERS: Tier[] = [
 ];
 const tierOf = (rank: number): Tier => TIERS.find((t) => rank >= t.min) ?? TIERS[TIERS.length - 1];
 
-export function Leaderboard({ rows }: { rows: LeaderboardRow[] }) {
+export function Leaderboard({ rows, baseQuery }: { rows: LeaderboardRow[]; baseQuery?: string }) {
   if (rows.length === 0) return <p className="muted">No agents in scope.</p>;
+
+  const rowStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: "0.75rem",
+    fontSize: "0.9rem",
+    textDecoration: "none",
+    color: "inherit",
+  };
 
   return (
     <div style={{ display: "grid", gap: "0.5rem" }}>
       {rows.map((r, i) => {
         const tier = tierOf(r.rank);
-        return (
-          <div
-            key={r.loginId}
-            style={{ display: "flex", alignItems: "center", gap: "0.75rem", fontSize: "0.9rem" }}
-          >
+        const inner = (
+          <>
             <span
               style={{
                 width: "1.4rem",
@@ -93,6 +100,18 @@ export function Leaderboard({ rows }: { rows: LeaderboardRow[] }) {
             >
               {tier.label}
             </span>
+          </>
+        );
+        const href = baseQuery
+          ? `/reports/detail?${baseQuery}&focus=agent&loginId=${r.loginId}`
+          : undefined;
+        return href ? (
+          <Link key={r.loginId} href={href} style={rowStyle}>
+            {inner}
+          </Link>
+        ) : (
+          <div key={r.loginId} style={rowStyle}>
+            {inner}
           </div>
         );
       })}

@@ -57,6 +57,7 @@ export async function correctEvaluationAction(
       monitoringType: draft.monitoringType,
       callType: draft.callType,
       coachingDate: draft.coachingDate ? new Date(draft.coachingDate) : undefined,
+      comment: draft.comment,
       flaggedReasonIds: draft.flaggedReasonIds,
       reason: reason.trim(),
     },

@@ -4,6 +4,7 @@ import { getAuthContext } from "@/lib/auth";
 import { agentScopeFor } from "@/lib/auth/scope";
 import { getEvaluationHistory, type EvaluationVersion } from "@/lib/evaluations/query";
 import { displayMobile } from "@/lib/pii";
+import { CoachingButton } from "./coaching-button";
 
 export const dynamic = "force-dynamic";
 
@@ -117,7 +118,7 @@ export default async function EvaluationDetailPage({
         />
       </div>
       <p className="page-sub">
-        Call {fmtDate(current.callDate)} · Config v{current.config.version} · Mobile{" "}
+        Call {fmtDate(current.callDate)} · Config v{current.config.version} · Phone Number{" "}
         {displayMobile(current.mobileMasked)} · Sum of criticals {current.sumOfCriticals}
       </p>
 
@@ -130,6 +131,32 @@ export default async function EvaluationDetailPage({
           Post a correction
         </Link>
       )}
+
+      {current.comment && (
+        <section className="card" style={{ marginTop: "1.25rem" }}>
+          <div style={{ fontWeight: 600, marginBottom: "0.35rem" }}>Comment</div>
+          <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{current.comment}</p>
+        </section>
+      )}
+
+      {current.coachingSentAt ? (
+        <div style={{ marginTop: "1.25rem", display: "grid", gap: "0.5rem" }}>
+          <span className="badge badge-success" style={{ width: "fit-content" }}>
+            ✓ Coaching sent via Email
+          </span>
+          <p className="muted" style={{ margin: 0, fontSize: "0.85rem" }}>
+            Sent by {current.coachingSentBy?.name ?? "—"} on {fmtDate(current.coachingSentAt)}.
+          </p>
+          {current.coachingText && (
+            <section className="card">
+              <div style={{ fontWeight: 600, marginBottom: "0.35rem" }}>Coaching notes</div>
+              <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{current.coachingText}</p>
+            </section>
+          )}
+        </div>
+      ) : current.failedScorecard && ctx.permissions.has("coaching.send") ? (
+        <CoachingButton evalId={current.evalId} />
+      ) : null}
 
       <h2 style={{ fontSize: "1.15rem", marginTop: "1.85rem" }}>
         Revision history{" "}

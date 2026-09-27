@@ -3,6 +3,7 @@ import { getAuthContext } from "@/lib/auth";
 import { agentRepository } from "@/lib/db/repositories";
 import { loadActiveConfig } from "@/lib/config/loader";
 import { rubricFromConfig } from "@/lib/evaluations/rubric";
+import { getCallTypes } from "@/lib/settings/settings";
 import { ScoreSheetForm } from "./score-sheet-form";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +33,7 @@ export default async function NewEvaluationPage() {
     );
   }
 
-  const rubric = rubricFromConfig(config);
+  const rubric = rubricFromConfig(config, await getCallTypes());
 
   const agents = (await agentRepository.list({ activeOnly: true })).map((a) => ({
     loginId: a.loginId,
@@ -41,7 +42,12 @@ export default async function NewEvaluationPage() {
 
   return (
     <main className="page">
-      <ScoreSheetForm rubric={rubric} agents={agents} defaultQaOwner={ctx.user.name} />
+      <ScoreSheetForm
+        rubric={rubric}
+        agents={agents}
+        defaultQaOwner={ctx.user.name}
+        canCoach={ctx.permissions.has("coaching.send")}
+      />
     </main>
   );
 }

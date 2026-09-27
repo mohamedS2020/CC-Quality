@@ -3,8 +3,10 @@ import { getAuthContext } from "@/lib/auth";
 import type { ConfigInput } from "@/lib/config/input";
 import { loadActiveConfig } from "@/lib/config/loader";
 import { buildInputFromLoaded } from "@/lib/config/versioning";
+import { getCallTypes, getCoachingCc } from "@/lib/settings/settings";
 import { ConfigEditor } from "./config-editor";
 import { ConfigViewer } from "./config-viewer";
+import { SettingsEditor } from "./settings-editor";
 
 // Reads the session + active config, so this route is always dynamic.
 export const dynamic = "force-dynamic";
@@ -40,8 +42,10 @@ export default async function ConfigPage() {
   // Editors get the full editor (and can start a first version if none exists).
   if (canEdit) {
     const initialDraft = active ? buildInputFromLoaded(active) : EMPTY_DRAFT;
+    const [callTypes, coachingCc] = await Promise.all([getCallTypes(), getCoachingCc()]);
     return (
       <main className="page">
+        <SettingsEditor initialCallTypes={callTypes} initialCoachingCc={coachingCc} />
         <ConfigEditor initialDraft={initialDraft} />
       </main>
     );

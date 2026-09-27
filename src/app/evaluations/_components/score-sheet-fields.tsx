@@ -18,6 +18,7 @@ export interface MetaState {
   callType: string;
   mobile: string;
   coachingDate: string;
+  comment: string;
 }
 
 export const EMPTY_META: MetaState = {
@@ -34,6 +35,7 @@ export const EMPTY_META: MetaState = {
   callType: "",
   mobile: "",
   coachingDate: "",
+  comment: "",
 };
 
 const TEXT_FIELDS: { key: keyof MetaState; label: string; type: string }[] = [
@@ -44,8 +46,7 @@ const TEXT_FIELDS: { key: keyof MetaState; label: string; type: string }[] = [
   { key: "callId", label: "Call ID", type: "text" },
   { key: "queue", label: "Queue", type: "text" },
   { key: "monitoringType", label: "Monitoring type", type: "text" },
-  { key: "callType", label: "Call type", type: "text" },
-  { key: "mobile", label: "Mobile (PII)", type: "text" },
+  { key: "mobile", label: "Phone Number (PII)", type: "text" },
   { key: "coachingDate", label: "Coaching date", type: "date" },
 ];
 
@@ -65,6 +66,7 @@ export function metaToFields(meta: MetaState) {
     monitoringType: meta.monitoringType || undefined,
     callType: meta.callType || undefined,
     coachingDate: meta.coachingDate || undefined,
+    comment: meta.comment.trim() || undefined,
   };
 }
 
@@ -148,6 +150,26 @@ export function ScoreSheetFields({
               <option value="OB">OB</option>
             </select>
           </label>
+          <label className="field">
+            <span>Call type</span>
+            <select
+              className="select"
+              aria-label="callType"
+              value={meta.callType}
+              onChange={(e) => setField("callType", e.target.value)}
+            >
+              <option value="">—</option>
+              {/* Keep a legacy value that's no longer in the config so old calls still display. */}
+              {meta.callType && !rubric.callTypes.includes(meta.callType) && (
+                <option value={meta.callType}>{meta.callType} (legacy)</option>
+              )}
+              {rubric.callTypes.map((ct) => (
+                <option key={ct} value={ct}>
+                  {ct}
+                </option>
+              ))}
+            </select>
+          </label>
           {TEXT_FIELDS.map((f) => (
             <label key={f.key} className="field">
               <span>{f.label}</span>
@@ -161,6 +183,17 @@ export function ScoreSheetFields({
             </label>
           ))}
         </div>
+        <label className="field" style={{ marginTop: "0.9rem" }}>
+          <span>Comment (optional — visible to the agent)</span>
+          <textarea
+            className="input"
+            aria-label="comment"
+            rows={3}
+            value={meta.comment}
+            onChange={(e) => setField("comment", e.target.value)}
+            placeholder="Notes on the call for the agent to see"
+          />
+        </label>
       </section>
 
       <section style={{ display: "grid", gap: "0.85rem" }}>

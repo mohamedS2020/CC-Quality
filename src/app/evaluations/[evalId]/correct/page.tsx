@@ -4,6 +4,7 @@ import { loadConfigById } from "@/lib/config/loader";
 import { prisma } from "@/lib/db/client";
 import { agentRepository } from "@/lib/db/repositories";
 import { rubricFromConfig } from "@/lib/evaluations/rubric";
+import { getCallTypes } from "@/lib/settings/settings";
 import { EMPTY_META, type MetaState } from "../../_components/score-sheet-fields";
 import { CorrectionForm } from "./correction-form";
 
@@ -70,6 +71,7 @@ export default async function CorrectEvaluationPage({
     callType: evaluation.callType ?? "",
     mobile: evaluation.mobileMasked ?? "",
     coachingDate: ymd(evaluation.coachingDate),
+    comment: evaluation.comment ?? "", // carried forward, editable
   };
 
   const agents = (await agentRepository.list({ activeOnly: true })).map((a) => ({
@@ -83,7 +85,7 @@ export default async function CorrectEvaluationPage({
         evalId={evaluation.evalId}
         version={evaluation.version}
         agentName={evaluation.agent.agentName}
-        rubric={rubricFromConfig(config)}
+        rubric={rubricFromConfig(config, await getCallTypes())}
         agents={agents}
         initialMeta={initialMeta}
         initialSelected={evaluation.lines.map((l) => l.errorReasonId)}

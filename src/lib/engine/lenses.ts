@@ -86,6 +86,8 @@ export function computeLens(
     sections.set(section.id, {
       sectionId: section.id,
       accuracy,
+      numerator,
+      denominator,
       benchmark,
       status: statusFor(accuracy, benchmark),
     });
