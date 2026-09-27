@@ -28,7 +28,19 @@ async function setList(key: string, values: string[]): Promise<void> {
   });
 }
 
-export const getCallTypes = (): Promise<string[]> => getList(CALL_TYPES);
+/**
+ * Call type options, always alphabetical.
+ *
+ * Stored order carries no meaning for a dropdown, and the editor appends new
+ * options to the end, so the list is sorted on READ rather than trusting how it
+ * happens to be stored: an option added later slots into place instead of
+ * landing at the bottom, whoever wrote it (editor, seed, or a direct write).
+ * Locale-aware, so "Not related" precedes "NPS" the way a person reads it —
+ * a code-unit sort puts them the other way round.
+ */
+export const getCallTypes = async (): Promise<string[]> =>
+  (await getList(CALL_TYPES)).sort((a, b) => a.localeCompare(b, "en", { sensitivity: "base" }));
+
 export const setCallTypes = (values: string[]): Promise<void> => setList(CALL_TYPES, values);
 
 export const getCoachingCc = (): Promise<string[]> => getList(COACHING_CC);
