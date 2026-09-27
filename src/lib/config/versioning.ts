@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/client";
 import type { ConfigInput } from "./input";
+import { reasonKey } from "./keys";
 import type { LoadedConfig } from "./loader";
 import { ConfigValidationError, validateConfigInput } from "./validation";
 
@@ -139,6 +140,10 @@ export async function createConfigVersion(
                       create: attribute.errorReasons.map((reason, ri) => ({
                         label: reason.label,
                         orderIndex: ri,
+                        // Carry the existing identity forward; only a brand-new
+                        // reason gets a freshly derived key. This is what keeps
+                        // already-scored evaluations resolvable after publish.
+                        key: reason.key ?? reasonKey(section.code, attribute.label, reason.label),
                         dictionaryEntry: reason.dictionary
                           ? {
                               create: {
@@ -239,6 +244,8 @@ export function buildInputFromLoaded(loaded: LoadedConfig): ConfigInput {
           label: attribute.label,
           errorReasons: attribute.errorReasons.map((reason) => ({
             label: reason.label,
+            // Preserved so re-saving this version doesn't re-mint identity.
+            key: reason.key,
             dictionary: reason.dictionary
               ? {
                   definition: reason.dictionary.definition,

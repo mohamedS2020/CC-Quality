@@ -10,6 +10,7 @@ import type { LoadedConfig, LoadedErrorReason, LoadedSection } from "@/lib/confi
 
 const cc1000: LoadedErrorReason = {
   id: 1000,
+  key: "cc.cc-attr.cc-error",
   label: "CC error",
   orderIndex: 0,
   attributeId: 100,
@@ -18,6 +19,7 @@ const cc1000: LoadedErrorReason = {
 };
 const nc2000: LoadedErrorReason = {
   id: 2000,
+  key: "nc.nc-attr.nc-error",
   label: "NC error",
   orderIndex: 0,
   attributeId: 200,
@@ -103,6 +105,7 @@ const config: LoadedConfig = {
     [1000, cc1000],
     [2000, nc2000],
   ]),
+  errorReasonByKey: new Map([cc1000, nc2000].map((r) => [r.key, r])),
   lensByKey: new Map(),
 };
 

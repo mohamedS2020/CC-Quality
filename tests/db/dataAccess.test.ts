@@ -138,7 +138,12 @@ describe("evaluation line integrity (orphan-reason rejection)", () => {
       data: { categoryId: category.id, label: "Test Attribute", orderIndex: 0 },
     });
     const reason = await prisma.errorReason.create({
-      data: { attributeId: attribute.id, label: "Test Reason", orderIndex: 0 },
+      data: {
+        attributeId: attribute.id,
+        label: "Test Reason",
+        orderIndex: 0,
+        key: "test.test-attribute.test-reason",
+      },
     });
     reasonId = reason.id;
 

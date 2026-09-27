@@ -46,7 +46,7 @@ describe("config loader", () => {
       data: { categoryId: catA.id, label: "Attr A", orderIndex: 0 },
     });
     const reasonA = await prisma.errorReason.create({
-      data: { attributeId: attrA.id, label: "Reason A", orderIndex: 0 },
+      data: { attributeId: attrA.id, label: "Reason A", orderIndex: 0, key: "a.attr-a.reason-a" },
     });
     const severity = await prisma.severity.create({
       data: { configId: config.id, label: "Business Critical", orderIndex: 0 },

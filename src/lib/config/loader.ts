@@ -28,7 +28,8 @@ export interface LoadedDictionaryEntry {
 }
 
 export interface LoadedErrorReason {
-  id: number;
+  id: number; // version-scoped surrogate — do NOT persist against a fact
+  key: string; // stable across versions; what stored flags resolve through
   label: string;
   orderIndex: number;
   attributeId: number;
@@ -94,6 +95,8 @@ export interface LoadedConfig {
   // Indexes for the engine (server-side use; not serialized to the client).
   sectionById: Map<number, LoadedSection>;
   errorReasonById: Map<number, LoadedErrorReason>;
+  /** Stable key -> reason. How flags stored under ANY version resolve here. */
+  errorReasonByKey: Map<string, LoadedErrorReason>;
   lensByKey: Map<string, LoadedLens>;
 }
 
@@ -132,6 +135,7 @@ function toLoadedConfig(raw: RawFullConfig): LoadedConfig {
         sectionId: section.id,
         errorReasons: attribute.errorReasons.map((reason) => ({
           id: reason.id,
+          key: reason.key,
           label: reason.label,
           orderIndex: reason.orderIndex,
           attributeId: attribute.id,
@@ -171,10 +175,12 @@ function toLoadedConfig(raw: RawFullConfig): LoadedConfig {
   }));
 
   const errorReasonById = new Map<number, LoadedErrorReason>();
+  const errorReasonByKey = new Map<string, LoadedErrorReason>();
   for (const section of sections) {
     for (const attribute of section.attributes) {
       for (const reason of attribute.errorReasons) {
         errorReasonById.set(reason.id, reason);
+        errorReasonByKey.set(reason.key, reason);
       }
     }
   }
@@ -194,8 +200,32 @@ function toLoadedConfig(raw: RawFullConfig): LoadedConfig {
     trainingBuckets: raw.trainingBuckets.map((t) => t.label),
     sectionById: new Map(sections.map((s) => [s.id, s])),
     errorReasonById,
+    errorReasonByKey,
     lensByKey: new Map(lenses.map((l) => [l.key, l])),
   };
+}
+
+/**
+ * Translate flags stored against ANY config version into this config's reason
+ * ids, via their stable keys.
+ *
+ * This is the boundary that keeps history correct across a publish. A key that
+ * this config doesn't contain (the reason was deleted from the rubric) is
+ * COUNTED, never silently dropped — dropping it would score the call as a clean
+ * pass and quietly report 100%.
+ */
+export function resolveStoredFlags(
+  config: LoadedConfig,
+  storedKeys: Iterable<string>,
+): { reasonIds: number[]; unresolved: number } {
+  const reasonIds: number[] = [];
+  let unresolved = 0;
+  for (const key of storedKeys) {
+    const reason = config.errorReasonByKey.get(key);
+    if (reason) reasonIds.push(reason.id);
+    else unresolved += 1;
+  }
+  return { reasonIds, unresolved };
 }
 
 export async function loadConfigById(id: number): Promise<LoadedConfig | null> {

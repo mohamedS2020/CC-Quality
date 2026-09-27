@@ -23,6 +23,12 @@ export interface DictionaryInput {
 
 export interface ErrorReasonInput {
   label: string;
+  /**
+   * Stable cross-version identity. Omitted for a brand-new reason (the
+   * versioning layer derives one); carried verbatim when an existing version is
+   * cloned, so evaluations scored under any version still resolve.
+   */
+  key?: string;
   dictionary: DictionaryInput | null;
 }
 

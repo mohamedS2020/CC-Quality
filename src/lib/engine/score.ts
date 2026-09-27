@@ -10,9 +10,17 @@ import { getScoringPlugin } from "./scoring";
  */
 export function scoreCall(config: LoadedConfig, flaggedReasonIds: Iterable<number>): ScoredCall {
   const reasonsBySection = new Map<number, LoadedErrorReason[]>();
+  // An id this config doesn't know is COUNTED, never ignored: silently skipping
+  // it scores the call as a clean pass, which is how a config publish once made
+  // every report read 100%. Callers with stored flags must resolve them through
+  // `resolveStoredFlags` (stable keys) before scoring.
+  let unresolvedFlags = 0;
   for (const id of flaggedReasonIds) {
     const reason = config.errorReasonById.get(id);
-    if (!reason) continue;
+    if (!reason) {
+      unresolvedFlags += 1;
+      continue;
+    }
     const list = reasonsBySection.get(reason.sectionId);
     if (list) list.push(reason);
     else reasonsBySection.set(reason.sectionId, [reason]);
@@ -27,7 +35,7 @@ export function scoreCall(config: LoadedConfig, flaggedReasonIds: Iterable<numbe
     if (section.critical) sumOfCriticals += score.errorCount;
   }
 
-  return { perSection, sumOfCriticals, failedScorecard: sumOfCriticals > 0 };
+  return { perSection, sumOfCriticals, failedScorecard: sumOfCriticals > 0, unresolvedFlags };
 }
 
 /**

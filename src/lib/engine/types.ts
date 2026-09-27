@@ -37,6 +37,13 @@ export interface ScoredCall {
   sumOfCriticals: number;
   /** Any critical error fails the scorecard (sum_of_criticals ≥ 1). */
   failedScorecard: boolean;
+  /**
+   * Flags this config could not account for. Non-zero means the caller passed
+   * ids that don't belong to `config` — the score below UNDERSTATES the errors
+   * and must not be presented as fact. Stored flags should reach the engine via
+   * `resolveStoredFlags`, which resolves them by stable key first.
+   */
+  unresolvedFlags: number;
 }
 
 export type LensStatus = "pass" | "fail" | "na";
@@ -46,6 +53,9 @@ export interface LensSectionResult {
   sectionId: number;
   /** Accuracy in [0,1], or NaN when the denominator is 0 (rendered n/a, FR-26). */
   accuracy: number;
+  /** The counts behind `accuracy` = 1 − numerator/denominator (passing = denom − numer). */
+  numerator: number;
+  denominator: number;
   benchmark: number | undefined;
   status: LensStatus;
 }

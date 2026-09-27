@@ -1,5 +1,5 @@
 import { LensBasis } from "@prisma/client";
-import type { LoadedConfig } from "@/lib/config/loader";
+import { resolveStoredFlags, type LoadedConfig } from "@/lib/config/loader";
 import { prisma } from "@/lib/db/client";
 import { computeErrorAnalytics } from "@/lib/engine/analytics";
 import { computeLens, isLensProvisional } from "@/lib/engine/lenses";
@@ -120,13 +120,20 @@ export async function loadAgentScorecard(
       callDate: true,
       overallStatus: true,
       failedScorecard: true,
-      lines: { select: { errorReasonId: true } },
+      // Stable key, not the version-scoped id: these calls may have been scored
+      // under an older config version (see resolveStoredFlags).
+      lines: { select: { errorReason: { select: { key: true } } } },
     },
   });
 
   const scorecard = buildScorecard(
     config,
-    evals.map((e) => ({ reasonIds: e.lines.map((l) => l.errorReasonId) })),
+    evals.map((e) =>
+      resolveStoredFlags(
+        config,
+        e.lines.map((l) => l.errorReason.key),
+      ),
+    ),
   );
   const calls: AgentCall[] = evals.map((e) => ({
     evalId: e.evalId,

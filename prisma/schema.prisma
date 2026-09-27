@@ -176,11 +176,19 @@ model ErrorReason {
   label       String
   orderIndex  Int    @map("order_index")
 
+  // STABLE identity across config versions. `id` is version-scoped — publishing a
+  // new version re-creates the whole rubric tree with fresh ids, which would
+  // orphan every EvaluationLine that references the old ones. `key` is minted
+  // once and carried forward on every clone, so a flag keeps its meaning no
+  // matter which version is active. Independent of `label`, so renames are safe.
+  key String
+
   attribute       Attribute        @relation(fields: [attributeId], references: [id], onDelete: Cascade)
   dictionaryEntry DictionaryEntry? // optional §9 metadata for this leaf
   lines           EvaluationLine[]
 
   @@unique([attributeId, label])
+  @@unique([attributeId, key])
   @@map("error_reasons")
 }
 

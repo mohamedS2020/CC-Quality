@@ -10,6 +10,7 @@ import type { LoadedConfig, LoadedSection } from "@/lib/config/loader";
 
 const errorReason = {
   id: 1000,
+  key: "cc.verification.skipped-verification",
   label: "Skipped verification",
   orderIndex: 0,
   attributeId: 100,
@@ -84,6 +85,7 @@ const config: LoadedConfig = {
   trainingBuckets: ["Telephone etiquette"],
   sectionById: new Map([[1, section]]),
   errorReasonById: new Map(),
+  errorReasonByKey: new Map(),
   lensByKey: new Map(),
 };
 
