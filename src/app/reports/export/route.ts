@@ -7,7 +7,7 @@ import { reportPeriods } from "@/lib/reports/filters";
 import { loadReport, pickLens } from "@/lib/reports/metrics";
 import { loadCallDetails } from "@/lib/reports/detail";
 import { previousPeriodId, resolveScope, resolveWindow } from "@/lib/reports/resolve";
-import { callRows, toCsv, toPdf, toXlsx } from "@/lib/reports/export";
+import { csvDocument, toPdf, toXlsx } from "@/lib/reports/export";
 
 export const dynamic = "force-dynamic";
 
@@ -101,8 +101,9 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // CSV carries the full raw per-call data (one table).
-  const csv = toCsv(callRows(details, sections, config.roundingDecimals));
+  // CSV carries the summary, every chart's data, then the full raw per-call and
+  // per-flag rows — a csv can't hold a picture, so each chart ships as its table.
+  const csv = csvDocument(report, details, sections, meta, config.roundingDecimals);
   return new Response(csv, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",

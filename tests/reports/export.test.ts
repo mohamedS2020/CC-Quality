@@ -6,6 +6,8 @@
 import {
   agentRows,
   callRows,
+  chartBlocks,
+  csvDocument,
   flagRows,
   sectionRows,
   summaryRows,
@@ -172,5 +174,77 @@ describe("report export rows", () => {
       ["1", "2", "3"],
     ]);
     expect(csv).toBe('a,"b,c","has ""quote"""\r\n1,2,3');
+  });
+});
+
+/**
+ * Charts in the exports: a csv/xlsx cannot hold a picture, so every chart ships
+ * as the table it is drawn from. These assert the tables carry the SAME numbers
+ * the chart shows, and that the numeric columns are flagged for Excel's data bars.
+ */
+describe("chart blocks", () => {
+  it("covers every chart on the report", () => {
+    const titles = chartBlocks(report, sectionMeta, 2).map((b) => b.title);
+    expect(titles).toEqual([
+      "Section accuracy vs benchmark",
+      "Figures per agent",
+      "Leaderboard — agent rank",
+    ]);
+  });
+
+  it("matches the per-agent chart to the agent table, section by section", () => {
+    const figures = chartBlocks(report, sectionMeta, 2).find(
+      (b) => b.title === "Figures per agent",
+    );
+    const fromTable = agentRows(report, sectionMeta, 2).slice(1);
+
+    expect(figures!.header).toEqual(["Agent", "CC %", "NC %", "Mean %"]);
+    figures!.rows.forEach((row, i) => {
+      // agentRows is [agent, ...sections, mean, rank]; the chart block drops rank.
+      expect(row).toEqual(fromTable[i].slice(0, -1));
+    });
+  });
+
+  it("marks the numeric columns so Excel can bar-render them", () => {
+    const [sectionsBlock, figures, leaderboard] = chartBlocks(report, sectionMeta, 2);
+    expect(sectionsBlock.percentColumns).toEqual([2, 3]); // accuracy + benchmark
+    expect(figures.percentColumns).toEqual([1, 2, 3]); // CC, NC, Mean
+    expect(leaderboard.scoreColumns).toEqual([1]); // rank is 0–100, not a %
+    // A label column is never bar-rendered.
+    for (const b of [sectionsBlock, figures, leaderboard]) {
+      expect([...b.percentColumns, ...b.scoreColumns]).not.toContain(0);
+    }
+  });
+
+  it("omits agent blocks when the report has no agents", () => {
+    const empty = { ...report, agentComparison: [], leaderboard: [] };
+    expect(chartBlocks(empty, sectionMeta, 2).map((b) => b.title)).toEqual([
+      "Section accuracy vs benchmark",
+    ]);
+  });
+});
+
+describe("csvDocument", () => {
+  const details: CallDetailRow[] = [];
+  const meta = { scopeLabel: "Whole account", period: "2026-09", lensLabel: "Account" };
+
+  it("carries the summary, every chart, and the raw calls under titled blocks", () => {
+    const csv = csvDocument(report, details, sectionMeta, meta, 2);
+    const titles = [...csv.matchAll(/^== (.+) ==$/gm)].map((m) => m[1]);
+    expect(titles).toEqual([
+      "Report summary",
+      "Section accuracy vs benchmark",
+      "Figures per agent",
+      "Leaderboard — agent rank",
+      "Calls",
+    ]);
+  });
+
+  it("writes the same figures the chart shows", () => {
+    const csv = csvDocument(report, details, sectionMeta, meta, 2);
+    const figures = chartBlocks(report, sectionMeta, 2).find(
+      (b) => b.title === "Figures per agent",
+    );
+    for (const row of figures!.rows) expect(csv).toContain(toCsv([row]));
   });
 });

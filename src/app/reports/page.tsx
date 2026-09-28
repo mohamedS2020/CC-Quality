@@ -10,6 +10,7 @@ import { ReportFilters, type FilterValues } from "./report-filters";
 import { KpiTiles } from "./_charts/kpi-tiles";
 import { SectionBenchmarkChart } from "./_charts/section-benchmark-chart";
 import { AgentComparison } from "./_charts/agent-comparison";
+import { FiguresPerAgent } from "./_charts/figures-per-agent";
 import { Leaderboard } from "./_charts/leaderboard-chart";
 
 export const dynamic = "force-dynamic";
@@ -150,6 +151,11 @@ export default async function ReportsPage({
     const perCall = m && callCount > 0 ? Math.max(1, Math.round(m.denominator / callCount)) : 1;
     return { sectionId: s.id, code: s.code, perCall };
   });
+  const figureSections = config.sections.map((s) => ({
+    sectionId: s.id,
+    code: s.code,
+    label: s.label,
+  }));
   const detailBase = exportQuery.toString();
   const showAgentCharts = !!report && report.agentComparison.length > 1;
 
@@ -271,6 +277,20 @@ export default async function ReportsPage({
                   explain={!isAgent}
                   baseQuery={detailBase}
                 />
+
+                <div style={{ marginTop: "1.5rem" }}>
+                  <strong>Figures per agent</strong>
+                  <p className="muted" style={{ fontSize: "0.85rem", margin: "0.1rem 0 0.75rem" }}>
+                    The same numbers as above, one column per section. Click a column for that
+                    agent&apos;s calls.
+                  </p>
+                  <FiguresPerAgent
+                    rows={report.agentComparison}
+                    sections={figureSections}
+                    decimals={config.roundingDecimals}
+                    baseQuery={detailBase}
+                  />
+                </div>
               </section>
 
               <section className="card">

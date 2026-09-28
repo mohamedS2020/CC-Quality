@@ -20,6 +20,10 @@ const pctStr = (v: number | undefined, decimals: number) =>
   v == null || Number.isNaN(v) ? "" : (v * 100).toFixed(decimals);
 const day = (d: Date) => d.toISOString().slice(0, 10);
 
+/** "passing/total" behind an accuracy (accuracy = 1 − numerator/denominator). */
+const countLabelFor = (numerator: number, denominator: number): string =>
+  denominator > 0 ? `${Math.round(denominator - numerator)}/${Math.round(denominator)}` : "";
+
 /** Section metrics as a table (`""` for n/a — clean in a spreadsheet). */
 export function sectionRows(report: Report, decimals: number): string[][] {
   const header = ["Section", "Label", "Accuracy %", "Benchmark %", "Status", "Delta (pts)"];
@@ -104,12 +108,123 @@ export function summaryRows(report: Report, meta: ExportMeta, decimals: number):
   ];
 }
 
+// ---------------------------------------------------------------------------
+// Chart data — every chart on the report, as the table behind it. One shared
+// definition so the PDF draws, Excel bar-renders and the CSV lists exactly the
+// same numbers the screen shows.
+// ---------------------------------------------------------------------------
+
+export interface ChartBlock {
+  title: string;
+  /** What the chart shows, in one line — carried into every format. */
+  note: string;
+  header: string[];
+  rows: string[][];
+  /** Header indexes holding a 0–100 percentage (data-bar columns in Excel). */
+  percentColumns: number[];
+  /** Header indexes holding a 0–100 score that is not a percentage (rank). */
+  scoreColumns: number[];
+}
+
+export function chartBlocks(
+  report: Report,
+  sections: SectionMeta[],
+  decimals: number,
+): ChartBlock[] {
+  const num = (v: number | undefined) =>
+    v == null || Number.isNaN(v) ? "" : (v * 100).toFixed(decimals);
+  const blocks: ChartBlock[] = [];
+
+  blocks.push({
+    title: "Section accuracy vs benchmark",
+    note: "Accuracy per section against its benchmark; a section passes at accuracy ≥ benchmark.",
+    header: ["Section", "Label", "Accuracy %", "Benchmark %", "Status"],
+    rows: report.sections.map((s) => [
+      s.code,
+      s.label,
+      num(s.accuracy),
+      num(s.benchmark),
+      s.status,
+    ]),
+    percentColumns: [2, 3],
+    scoreColumns: [],
+  });
+
+  if (report.agentComparison.length > 0) {
+    blocks.push({
+      title: "Figures per agent",
+      note: "Accuracy per section for each agent — the grouped column chart, worst-first.",
+      header: ["Agent", ...sections.map((s) => `${s.code} %`), "Mean %"],
+      rows: report.agentComparison.map((a) => [
+        a.agentName,
+        ...sections.map((s) => {
+          const cell = a.cells.find((c) => c.sectionId === s.sectionId);
+          return num(cell?.accuracy);
+        }),
+        num(a.meanAccuracy),
+      ]),
+      percentColumns: sections.map((_, i) => i + 1).concat([sections.length + 1]),
+      scoreColumns: [],
+    });
+  }
+
+  if (report.leaderboard.length > 0) {
+    blocks.push({
+      title: "Leaderboard — agent rank",
+      note: "Rank 0–100: each section earns its full weight only when its rank benchmark is met.",
+      header: ["Agent", "Rank"],
+      rows: report.leaderboard.map((r) => [r.agentName, String(r.rank)]),
+      percentColumns: [],
+      scoreColumns: [1],
+    });
+  }
+
+  return blocks;
+}
+
 function csvCell(s: string): string {
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
 export function toCsv(rows: string[][]): string {
   return rows.map((r) => r.map(csvCell).join(",")).join("\r\n");
+}
+
+/**
+ * The whole report as ONE csv: the summary, every chart's data, then the raw
+ * per-call and per-flag rows. A csv cannot carry a picture, so each chart is
+ * written as the table it is drawn from, under its own title — the numbers are
+ * identical to the chart on screen.
+ */
+export function csvDocument(
+  report: Report,
+  details: CallDetailRow[],
+  sections: SectionMeta[],
+  meta: ExportMeta,
+  decimals: number,
+): string {
+  const out: string[][] = [];
+  const block = (title: string, note: string, rows: string[][]) => {
+    if (out.length > 0) out.push([]);
+    out.push([`== ${title} ==`]);
+    if (note) out.push([note]);
+    out.push(...rows);
+  };
+
+  block("Report summary", "", summaryRows(report, meta, decimals));
+  for (const b of chartBlocks(report, sections, decimals)) {
+    block(b.title, b.note, [b.header, ...b.rows]);
+  }
+  block(
+    "Calls",
+    "Every scored call behind the figures above.",
+    callRows(details, sections, decimals),
+  );
+
+  const flags = flagRows(details);
+  if (flags.length > 1) block("Flagged reasons", "One row per flagged error.", flags);
+
+  return toCsv(out);
 }
 
 // ---------------------------------------------------------------------------
@@ -162,6 +277,85 @@ export async function toXlsx(
   summary.getColumn(1).font = { bold: true };
   summary.getColumn(1).width = 16;
   summary.getColumn(2).width = 40;
+
+  // Charts — each chart's data laid out as a titled block, with native Excel
+  // data bars so the columns render in-cell. exceljs cannot create a real chart
+  // object, and an embedded picture would need a rasteriser; data bars are
+  // native, and Insert ▸ Chart over a block gives a live chart in two clicks.
+  const charts = wb.addWorksheet("Charts");
+  const SERIES = ["FF2A78D6", "FFEB6834", "FF1BAF7A", "FFEDA100", "FFE87BA4", "FF008300"];
+  let at = 1;
+
+  for (const [bi, b] of chartBlocks(report, sections, decimals).entries()) {
+    const titleRow = charts.getRow(at);
+    titleRow.getCell(1).value = b.title;
+    titleRow.getCell(1).font = { bold: true, size: 13 };
+    at += 1;
+
+    const noteRow = charts.getRow(at);
+    noteRow.getCell(1).value = b.note;
+    noteRow.getCell(1).font = { italic: true, size: 9, color: { argb: "FF626976" } };
+    at += 1;
+
+    const headerRowIdx = at;
+    const header = charts.getRow(at);
+    b.header.forEach((h, i) => {
+      const c = header.getCell(i + 1);
+      c.value = h;
+      c.font = { bold: true, color: { argb: "FFFFFFFF" } };
+      c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F2937" } };
+    });
+    at += 1;
+
+    const firstDataRow = at;
+    for (const r of b.rows) {
+      const row = charts.getRow(at);
+      r.forEach((v, i) => {
+        const c = row.getCell(i + 1);
+        // Numeric columns go in as NUMBERS so the data bars (and any chart the
+        // user inserts) read them as values, not text.
+        const numeric = b.percentColumns.includes(i) || b.scoreColumns.includes(i);
+        if (numeric && v !== "") {
+          c.value = Number(v);
+          c.numFmt = b.percentColumns.includes(i) ? '0.00"%"' : "0";
+        } else {
+          c.value = v;
+        }
+      });
+      at += 1;
+    }
+    const lastDataRow = at - 1;
+
+    if (lastDataRow >= firstDataRow) {
+      const colLetter = (i: number) => String.fromCharCode(65 + i);
+      for (const ci of [...b.percentColumns, ...b.scoreColumns]) {
+        charts.addConditionalFormatting({
+          ref: `${colLetter(ci)}${firstDataRow}:${colLetter(ci)}${lastDataRow}`,
+          rules: [
+            // min/max auto-scaling (Excel's own default): QA accuracy clusters
+            // in the 90-100% band, where a fixed 0-100 bar fills every cell and
+            // shows nothing. The exact value is printed in the cell regardless.
+            // `color` is honoured by exceljs at runtime but missing from its
+            // typings, hence the cast.
+            {
+              type: "dataBar",
+              priority: 1,
+              gradient: false,
+              showValue: true,
+              cfvo: [{ type: "min" }, { type: "max" }],
+              color: { argb: SERIES[(ci - 1 + bi) % SERIES.length] },
+            } as unknown as import("exceljs").DataBarRuleType,
+          ],
+        });
+      }
+      charts.views = [{ state: "frozen", ySplit: headerRowIdx }];
+    }
+
+    at += 2; // a blank line between blocks
+  }
+
+  charts.getColumn(1).width = 34;
+  for (let i = 2; i <= 10; i += 1) charts.getColumn(i).width = 14;
 
   sheet("Sections", sectionRows(report, decimals));
   sheet("Agents", agentRows(report, sections, decimals));
@@ -294,6 +488,234 @@ export async function toPdf(
     rows.forEach((r, i) => drawRow(r, font, 8.5, i % 2 === 1 ? "zebra" : undefined));
     yy -= 12;
   };
+
+  // --- Charts (drawn as real vectors — no rasteriser, crisp at any zoom) ----
+  const SERIES = [
+    rgb(0.165, 0.471, 0.839), // #2a78d6
+    rgb(0.922, 0.408, 0.204), // #eb6834
+    rgb(0.106, 0.686, 0.478), // #1baf7a
+    rgb(0.929, 0.631, 0.0), // #eda100
+    rgb(0.91, 0.482, 0.643), // #e87ba4
+    rgb(0.0, 0.514, 0.0), // #008300
+  ];
+
+  /**
+   * Grouped column chart: a group per agent, a coloured column per section.
+   * The value axis starts at 50% for the same reason the screen chart does —
+   * QA accuracy clusters near the top, where a 0-based axis flattens every
+   * column — and drops to 0 if anything falls below, so nothing is clipped.
+   */
+  const drawGroupedChart = (
+    title: string,
+    groups: { label: string; values: (number | undefined)[] }[],
+    seriesLabels: string[],
+  ) => {
+    if (groups.length === 0 || seriesLabels.length === 0) return;
+
+    const plotW = PW - 2 * M;
+    const plotH = 150;
+    const axisW = 30;
+    const legendH = 16;
+    const total = plotH + legendH + 46;
+    ensure(total);
+
+    page.drawText(title, { x: M, y: yy, size: 12, font: bold, color: ink });
+    yy -= 14;
+
+    const values = groups
+      .flatMap((g) => g.values)
+      .filter((v): v is number => v != null && !Number.isNaN(v));
+    const min = values.length > 0 ? Math.min(...values) : 1;
+    const floor = min < 0.5 ? 0 : 0.5;
+    const span = 1 - floor;
+
+    const baseY = yy - plotH;
+    const yOf = (v: number) => baseY + plotH * ((Math.max(v, floor) - floor) / span);
+    const innerW = plotW - axisW;
+    const groupW = innerW / groups.length;
+    const barGap = 1.5;
+    const barW = Math.min(20, (groupW - 14) / seriesLabels.length - barGap);
+
+    // Gridlines + axis labels (solid hairlines — dashes read as data).
+    for (let t = 0; t <= 5; t += 1) {
+      const v = floor + (span * t) / 5;
+      const gy = yOf(v);
+      page.drawLine({
+        start: { x: M + axisW, y: gy },
+        end: { x: M + plotW, y: gy },
+        thickness: 0.4,
+        color: line,
+      });
+      page.drawText(`${(v * 100).toFixed(0)}%`, {
+        x: M,
+        y: gy - 2.5,
+        size: 6.5,
+        font,
+        color: muted,
+      });
+    }
+
+    groups.forEach((g, gi) => {
+      const inner = seriesLabels.length * barW + (seriesLabels.length - 1) * barGap;
+      const startX = M + axisW + groupW * gi + (groupW - inner) / 2;
+      g.values.forEach((v, si) => {
+        if (v == null || Number.isNaN(v)) return;
+        const x = startX + si * (barW + barGap);
+        const h = Math.max(0.6, yOf(v) - baseY);
+        page.drawRectangle({
+          x,
+          y: baseY,
+          width: barW,
+          height: h,
+          color: SERIES[si % SERIES.length],
+        });
+        page.drawText(`${(v * 100).toFixed(1)}%`, {
+          x: x + barW / 2 - 9,
+          y: baseY + h + 2.5,
+          size: 5.5,
+          font: bold,
+          color: ink,
+        });
+      });
+      page.drawText(fit(g.label, groupW - 4, 6.5), {
+        x: M + axisW + groupW * gi + 2,
+        y: baseY - 9,
+        size: 6.5,
+        font,
+        color: ink,
+      });
+    });
+
+    page.drawLine({
+      start: { x: M + axisW, y: baseY },
+      end: { x: M + plotW, y: baseY },
+      thickness: 0.6,
+      color: rgb(0.76, 0.77, 0.79),
+    });
+
+    // Legend — identity never rests on colour alone.
+    let lx = M + axisW;
+    seriesLabels.forEach((s, i) => {
+      page.drawRectangle({
+        x: lx,
+        y: baseY - 22,
+        width: 6,
+        height: 6,
+        color: SERIES[i % SERIES.length],
+      });
+      page.drawText(s, { x: lx + 9, y: baseY - 21.5, size: 6.5, font, color: muted });
+      lx += 9 + s.length * 3.3 + 14;
+    });
+
+    yy = baseY - 36;
+  };
+
+  /**
+   * Single-series column chart, mirroring the on-screen "Section accuracy vs
+   * benchmark": one column per section spread evenly across the FULL plot
+   * width (not bunched into one cluster like the grouped chart), on a fixed
+   * 0–100% axis, coloured by pass/fail with the benchmark marked on each.
+   */
+  const drawSectionChart = (title: string) => {
+    const cols = report.sections;
+    if (cols.length === 0) return;
+
+    const plotW = PW - 2 * M;
+    const plotH = 150;
+    const axisW = 30;
+    ensure(plotH + 52);
+
+    page.drawText(title, { x: M, y: yy, size: 12, font: bold, color: ink });
+    yy -= 14;
+
+    const baseY = yy - plotH;
+    const yOf = (v: number) => baseY + plotH * Math.max(0, Math.min(1, v)); // fixed 0–100%
+    const innerW = plotW - axisW;
+    const bandW = innerW / cols.length;
+    // Wide columns, evenly spaced — the chart fills the page width.
+    const barW = Math.min(64, bandW * 0.5);
+
+    for (const t of [0, 0.25, 0.5, 0.75, 1]) {
+      page.drawLine({
+        start: { x: M + axisW, y: yOf(t) },
+        end: { x: M + plotW, y: yOf(t) },
+        thickness: 0.4,
+        color: line,
+      });
+      page.drawText(`${t * 100}%`, { x: M, y: yOf(t) - 2.5, size: 6.5, font, color: muted });
+    }
+
+    cols.forEach((s, i) => {
+      const cx = M + axisW + bandW * i + bandW / 2;
+      const acc = Number.isNaN(s.accuracy) ? 0 : s.accuracy;
+      const h = Math.max(0.6, yOf(acc) - baseY);
+      const colour =
+        s.status === "pass"
+          ? rgb(0.071, 0.588, 0.353)
+          : s.status === "fail"
+            ? rgb(0.863, 0.169, 0.231)
+            : rgb(0.6, 0.63, 0.67);
+
+      if (!Number.isNaN(s.accuracy)) {
+        page.drawRectangle({ x: cx - barW / 2, y: baseY, width: barW, height: h, color: colour });
+      }
+      if (s.benchmark != null) {
+        page.drawLine({
+          start: { x: cx - barW / 2 - 5, y: yOf(s.benchmark) },
+          end: { x: cx + barW / 2 + 5, y: yOf(s.benchmark) },
+          thickness: 1.1,
+          color: ink,
+        });
+      }
+      page.drawText(Number.isNaN(s.accuracy) ? "n/a" : `${(s.accuracy * 100).toFixed(decimals)}%`, {
+        x: cx - 13,
+        y: baseY + h + 3,
+        size: 7.5,
+        font: bold,
+        color: ink,
+      });
+      page.drawText(s.code, {
+        x: cx - s.code.length * 2,
+        y: baseY - 10,
+        size: 7.5,
+        font,
+        color: ink,
+      });
+      const frac = countLabelFor(s.numerator, s.denominator);
+      if (frac) {
+        page.drawText(frac, {
+          x: cx - frac.length * 1.6,
+          y: baseY - 18,
+          size: 6,
+          font,
+          color: muted,
+        });
+      }
+    });
+
+    page.drawLine({
+      start: { x: M + axisW, y: baseY },
+      end: { x: M + plotW, y: baseY },
+      thickness: 0.6,
+      color: rgb(0.76, 0.77, 0.79),
+    });
+    page.drawText("— benchmark", { x: M + axisW, y: baseY - 30, size: 6.5, font, color: muted });
+
+    yy = baseY - 42;
+  };
+
+  drawSectionChart("Section accuracy vs benchmark");
+
+  if (report.agentComparison.length > 0) {
+    drawGroupedChart(
+      "Figures per agent",
+      report.agentComparison.map((a) => ({
+        label: a.agentName,
+        values: sections.map((s) => a.cells.find((c) => c.sectionId === s.sectionId)?.accuracy),
+      })),
+      sections.map((s) => s.code),
+    );
+  }
 
   drawTable(
     "Sections",
