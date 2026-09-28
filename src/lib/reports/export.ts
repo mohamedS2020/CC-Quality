@@ -24,6 +24,56 @@ const day = (d: Date) => d.toISOString().slice(0, 10);
 const countLabelFor = (numerator: number, denominator: number): string =>
   denominator > 0 ? `${Math.round(denominator - numerator)}/${Math.round(denominator)}` : "";
 
+/**
+ * pdf-lib's standard fonts are WinAnsi (CP1252) and THROW on any character
+ * outside it, failing the whole download. Real labels reach the PDF from the
+ * config, the agent roster and the filters — a custom date range alone renders
+ * as "from → to" — so text is normalised here rather than trusted.
+ *
+ * CP1252 is Latin-1 (U+00A0–U+00FF) plus a fixed set of typographic characters
+ * in the 0x80–0x9F gap; everything else is substituted, and anything left over
+ * degrades to "?" so a label can never crash an export. Non-Latin scripts
+ * therefore transliterate to "?" — embedding a Unicode font is the fix if that
+ * is ever needed.
+ */
+const CP1252_EXTRA = new Set([
+  0x20ac, 0x201a, 0x0192, 0x201e, 0x2026, 0x2020, 0x2021, 0x02c6, 0x2030, 0x0160, 0x2039, 0x0152,
+  0x017d, 0x2018, 0x2019, 0x201c, 0x201d, 0x2022, 0x2013, 0x2014, 0x02dc, 0x2122, 0x0161, 0x203a,
+  0x0153, 0x017e, 0x0178,
+]);
+
+const PDF_SUBS: Record<string, string> = {
+  "→": "->",
+  "←": "<-",
+  "⇒": "=>",
+  "⇐": "<=",
+  "≥": ">=",
+  "≤": "<=",
+  "≠": "!=",
+  "≈": "~",
+  Σ: "Sum",
+  "✓": "Y",
+  "✗": "N",
+  "■": "-",
+  "┄": "-",
+};
+
+export function pdfSafe(text: string): string {
+  let out = "";
+  for (const ch of text) {
+    const code = ch.codePointAt(0) ?? 0;
+    if (code < 0x20) out += " ";
+    else if (
+      (code >= 0x20 && code <= 0x7e) ||
+      (code >= 0xa0 && code <= 0xff) ||
+      CP1252_EXTRA.has(code)
+    )
+      out += ch;
+    else out += PDF_SUBS[ch] ?? "?";
+  }
+  return out;
+}
+
 /** Section metrics as a table (`""` for n/a — clean in a spreadsheet). */
 export function sectionRows(report: Report, decimals: number): string[][] {
   const header = ["Section", "Label", "Accuracy %", "Benchmark %", "Status", "Delta (pts)"];
@@ -394,6 +444,15 @@ export async function toPdf(
   let page = doc.addPage([PW, PH]);
   let yy = PH;
 
+  /**
+   * The ONLY way text reaches the document: every caller goes through
+   * `pdfSafe`, so no config label, agent name or filter value can throw a
+   * WinAnsi encoding error and fail the download. Reads `page` live, so it
+   * always writes to the current page after a break.
+   */
+  const drawText = (text: string, options: Parameters<typeof page.drawText>[1]) =>
+    page.drawText(pdfSafe(text), options);
+
   const fit = (s: string, width: number, size: number) => {
     const max = Math.max(1, Math.floor(width / (size * 0.52)));
     return s.length > max ? `${s.slice(0, max - 1)}…` : s;
@@ -401,21 +460,21 @@ export async function toPdf(
 
   const header = () => {
     page.drawRectangle({ x: 0, y: PH - 66, width: PW, height: 66, color: band });
-    page.drawText("Quality Report", {
+    drawText("Quality Report", {
       x: M,
       y: PH - 38,
       size: 19,
       font: bold,
       color: rgb(1, 1, 1),
     });
-    page.drawText(`${meta.scopeLabel}  ·  ${meta.period}  ·  ${meta.lensLabel} lens`, {
+    drawText(`${meta.scopeLabel}  ·  ${meta.period}  ·  ${meta.lensLabel} lens`, {
       x: M,
       y: PH - 55,
       size: 10,
       font,
       color: rgb(0.82, 0.85, 0.9),
     });
-    page.drawText(`Generated ${new Date().toISOString().slice(0, 10)}`, {
+    drawText(`Generated ${new Date().toISOString().slice(0, 10)}`, {
       x: PW - M - 140,
       y: PH - 55,
       size: 9,
@@ -438,8 +497,8 @@ export async function toPdf(
   // KPI summary
   const k = report.kpis;
   const stat = (label: string, value: string, x: number) => {
-    page.drawText(value, { x, y: yy, size: 15, font: bold, color: ink });
-    page.drawText(label, { x, y: yy - 13, size: 8, font, color: muted });
+    drawText(value, { x, y: yy, size: 15, font: bold, color: ink });
+    drawText(label, { x, y: yy - 13, size: 8, font, color: muted });
   };
   stat("Calls scored", String(k.callCount), M);
   stat("Agents", String(k.agentCount), M + 150);
@@ -455,7 +514,7 @@ export async function toPdf(
   const drawTable = (title: string, headers: string[], rows: string[][], widths: number[]) => {
     const total = widths.reduce((a, b) => a + b, 0);
     ensure(46);
-    page.drawText(title, { x: M, y: yy, size: 12, font: bold, color: ink });
+    drawText(title, { x: M, y: yy, size: 12, font: bold, color: ink });
     yy -= 16;
 
     const drawRow = (cells: string[], f = font, size = 8.5, fill?: string) => {
@@ -466,7 +525,7 @@ export async function toPdf(
         page.drawRectangle({ x: M, y: yy - 3, width: total, height: 15, color: zebra });
       let x = M;
       cells.forEach((c, i) => {
-        page.drawText(fit(c, widths[i] - 6, size), {
+        drawText(fit(c, widths[i] - 6, size), {
           x: x + 3,
           y: yy,
           size,
@@ -519,7 +578,7 @@ export async function toPdf(
     const total = plotH + legendH + 46;
     ensure(total);
 
-    page.drawText(title, { x: M, y: yy, size: 12, font: bold, color: ink });
+    drawText(title, { x: M, y: yy, size: 12, font: bold, color: ink });
     yy -= 14;
 
     const values = groups
@@ -546,7 +605,7 @@ export async function toPdf(
         thickness: 0.4,
         color: line,
       });
-      page.drawText(`${(v * 100).toFixed(0)}%`, {
+      drawText(`${(v * 100).toFixed(0)}%`, {
         x: M,
         y: gy - 2.5,
         size: 6.5,
@@ -569,7 +628,7 @@ export async function toPdf(
           height: h,
           color: SERIES[si % SERIES.length],
         });
-        page.drawText(`${(v * 100).toFixed(1)}%`, {
+        drawText(`${(v * 100).toFixed(1)}%`, {
           x: x + barW / 2 - 9,
           y: baseY + h + 2.5,
           size: 5.5,
@@ -577,7 +636,7 @@ export async function toPdf(
           color: ink,
         });
       });
-      page.drawText(fit(g.label, groupW - 4, 6.5), {
+      drawText(fit(g.label, groupW - 4, 6.5), {
         x: M + axisW + groupW * gi + 2,
         y: baseY - 9,
         size: 6.5,
@@ -603,7 +662,7 @@ export async function toPdf(
         height: 6,
         color: SERIES[i % SERIES.length],
       });
-      page.drawText(s, { x: lx + 9, y: baseY - 21.5, size: 6.5, font, color: muted });
+      drawText(s, { x: lx + 9, y: baseY - 21.5, size: 6.5, font, color: muted });
       lx += 9 + s.length * 3.3 + 14;
     });
 
@@ -625,7 +684,7 @@ export async function toPdf(
     const axisW = 30;
     ensure(plotH + 52);
 
-    page.drawText(title, { x: M, y: yy, size: 12, font: bold, color: ink });
+    drawText(title, { x: M, y: yy, size: 12, font: bold, color: ink });
     yy -= 14;
 
     const baseY = yy - plotH;
@@ -642,7 +701,7 @@ export async function toPdf(
         thickness: 0.4,
         color: line,
       });
-      page.drawText(`${t * 100}%`, { x: M, y: yOf(t) - 2.5, size: 6.5, font, color: muted });
+      drawText(`${t * 100}%`, { x: M, y: yOf(t) - 2.5, size: 6.5, font, color: muted });
     }
 
     cols.forEach((s, i) => {
@@ -667,14 +726,14 @@ export async function toPdf(
           color: ink,
         });
       }
-      page.drawText(Number.isNaN(s.accuracy) ? "n/a" : `${(s.accuracy * 100).toFixed(decimals)}%`, {
+      drawText(Number.isNaN(s.accuracy) ? "n/a" : `${(s.accuracy * 100).toFixed(decimals)}%`, {
         x: cx - 13,
         y: baseY + h + 3,
         size: 7.5,
         font: bold,
         color: ink,
       });
-      page.drawText(s.code, {
+      drawText(s.code, {
         x: cx - s.code.length * 2,
         y: baseY - 10,
         size: 7.5,
@@ -683,7 +742,7 @@ export async function toPdf(
       });
       const frac = countLabelFor(s.numerator, s.denominator);
       if (frac) {
-        page.drawText(frac, {
+        drawText(frac, {
           x: cx - frac.length * 1.6,
           y: baseY - 18,
           size: 6,
@@ -699,7 +758,7 @@ export async function toPdf(
       thickness: 0.6,
       color: rgb(0.76, 0.77, 0.79),
     });
-    page.drawText("— benchmark", { x: M + axisW, y: baseY - 30, size: 6.5, font, color: muted });
+    drawText("— benchmark", { x: M + axisW, y: baseY - 30, size: 6.5, font, color: muted });
 
     yy = baseY - 42;
   };

@@ -103,7 +103,9 @@ export async function GET(req: NextRequest) {
 
   // CSV carries the summary, every chart's data, then the full raw per-call and
   // per-flag rows — a csv can't hold a picture, so each chart ships as its table.
-  const csv = csvDocument(report, details, sections, meta, config.roundingDecimals);
+  // A leading BOM so Excel reads it as UTF-8; without it the block titles and
+  // range labels ("→", "≥", "—") open as mojibake on a Windows locale.
+  const csv = `﻿${csvDocument(report, details, sections, meta, config.roundingDecimals)}`;
   return new Response(csv, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",

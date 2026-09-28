@@ -9,9 +9,11 @@ import {
   chartBlocks,
   csvDocument,
   flagRows,
+  pdfSafe,
   sectionRows,
   summaryRows,
   toCsv,
+  toPdf,
 } from "@/lib/reports/export";
 import type { Report } from "@/lib/reports/metrics";
 import type { CallDetailRow } from "@/lib/reports/detail";
@@ -224,6 +226,45 @@ describe("chart blocks", () => {
   });
 });
 
+/**
+ * REGRESSION: pdf-lib's standard fonts are WinAnsi and THROW on anything
+ * outside CP1252. A custom From/To range labels the window "from → to", which
+ * failed the whole PDF download; config labels and agent names are equally
+ * uncontrolled, so the guard has to cover the class, not just the arrow.
+ */
+describe("pdfSafe", () => {
+  it("substitutes the characters this app actually generates", () => {
+    expect(pdfSafe("2026-01-05 → 2026-06-15")).toBe("2026-01-05 -> 2026-06-15");
+    expect(pdfSafe("accuracy ≥ benchmark")).toBe("accuracy >= benchmark");
+    expect(pdfSafe("any error ⇒ 0")).toBe("any error => 0");
+  });
+
+  it("keeps everything WinAnsi can already encode", () => {
+    // Latin-1 accents, CP1252 typography, and the middle dot the header uses.
+    const keep = "Whole account · 2026-09 — Ahmed “Ayman” · café – naïve … 100%";
+    expect(pdfSafe(keep)).toBe(keep);
+  });
+
+  it("degrades anything else to ? instead of throwing", () => {
+    expect(pdfSafe("محمد")).toBe("????");
+    expect(pdfSafe("名前")).toBe("??");
+    expect(pdfSafe("a\tb\nc")).toBe("a b c");
+  });
+
+  it("builds the PDF for a custom date range and a non-Latin name", async () => {
+    // The exact shape that failed: resolveWindow labels a range "from → to",
+    // which the header draws verbatim.
+    const bytes = await toPdf(
+      report,
+      [],
+      sectionMeta,
+      { scopeLabel: "Agent محمد", period: "2026-01-05 → 2026-06-15", lensLabel: "Account" },
+      2,
+    );
+    expect(bytes.length).toBeGreaterThan(1000);
+  });
+});
+
 describe("csvDocument", () => {
   const details: CallDetailRow[] = [];
   const meta = { scopeLabel: "Whole account", period: "2026-09", lensLabel: "Account" };
@@ -246,5 +287,11 @@ describe("csvDocument", () => {
       (b) => b.title === "Figures per agent",
     );
     for (const row of figures!.rows) expect(csv).toContain(toCsv([row]));
+  });
+
+  // The other two formats are UTF-8 and must NOT need the PDF's substitution.
+  it("keeps the range label intact — csv is UTF-8, not WinAnsi", () => {
+    const ranged = { ...meta, period: "2026-01-05 → 2026-06-15" };
+    expect(csvDocument(report, [], sectionMeta, ranged, 2)).toContain("2026-01-05 → 2026-06-15");
   });
 });
