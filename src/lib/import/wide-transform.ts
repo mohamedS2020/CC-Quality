@@ -30,10 +30,21 @@ export interface WideTransform {
   unmapped: UnmappedReason[];
   callCount: number;
   flagCount: number;
+  /** Calls whose identifying fields repeat an earlier row (kept, not merged). */
+  repeatedBasis: number;
 }
 
-/** Deterministic id from stable call fields, so re-importing a file dedupes. */
-function evalIdFor(meta: Record<string, string>): string {
+/**
+ * Deterministic id from stable call fields, so re-importing a file dedupes.
+ *
+ * These fields do NOT uniquely identify a call: the same agent can handle the
+ * same number twice on the same day with the same call type, and `call_id` is
+ * optional in the wide sheet. Rows that share a basis therefore get a stable
+ * occurrence suffix (`-2`, `-3`, …) instead of collapsing into one evaluation —
+ * silently merging them would under-count calls and merge their flags. The
+ * first occurrence keeps the bare hash, so ids already imported stay matched.
+ */
+function evalBasisFor(meta: Record<string, string>): string {
   const basis = [
     meta.login_id,
     meta.call_date,
@@ -54,9 +65,21 @@ export function transformWide(
   const unmappedMap = new Map<string, UnmappedReason>();
   const rows: Record<string, string>[] = [];
   let flagCount = 0;
+  const seenBasis = new Map<string, number>();
+  let mergedRows = 0;
 
   for (const call of calls) {
-    const base = { eval_id: evalIdFor(call.meta), ...call.meta };
+    const basis = evalBasisFor(call.meta);
+    const seen = (seenBasis.get(basis) ?? 0) + 1;
+    seenBasis.set(basis, seen);
+    if (seen > 1) mergedRows += 1;
+    // `__row` is the SHEET row so an error names what the user sees in Excel:
+    // rowNumber is the 1-based data row, and the header occupies row 1.
+    const base = {
+      eval_id: seen === 1 ? basis : `${basis}-${seen}`,
+      __row: String(call.rowNumber + 1),
+      ...call.meta,
+    };
 
     if (call.flags.length === 0) {
       rows.push({ ...base }); // clean call — a single blank-error row
@@ -91,5 +114,11 @@ export function transformWide(
     }
   }
 
-  return { rows, unmapped: [...unmappedMap.values()], callCount: calls.length, flagCount };
+  return {
+    rows,
+    unmapped: [...unmappedMap.values()],
+    callCount: calls.length,
+    flagCount,
+    repeatedBasis: mergedRows,
+  };
 }

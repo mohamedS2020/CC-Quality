@@ -57,10 +57,11 @@ async function loadSheet(file: File): Promise<RawSheet> {
 
 /** Long-format: key each row by header (matches the classic importer). */
 function sheetToRecords(sheet: RawSheet): Record<string, string>[] {
-  return sheet.rows.map((cells) => {
-    const rec: Record<string, string> = {};
-    sheet.header.forEach((h, i) => {
-      if (h) rec[h] = (cells[i] ?? "").trim();
+  return sheet.rows.map((cells, i) => {
+    // +2: the sheet's header is row 1, so data starts at row 2.
+    const rec: Record<string, string> = { __row: String(i + 2) };
+    sheet.header.forEach((h, c) => {
+      if (h) rec[h] = (cells[c] ?? "").trim();
     });
     return rec;
   });

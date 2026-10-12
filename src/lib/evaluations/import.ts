@@ -17,6 +17,8 @@ import { createEvaluation, type CreateEvaluationInput } from "./create";
 export interface ImportError {
   evalId: string;
   message: string;
+  /** 1-based row in the uploaded sheet (the header is row 1), when known. */
+  row?: number;
 }
 
 export interface ImportResult {
@@ -169,9 +171,16 @@ function toDate(value: string | undefined): Date | undefined {
 }
 
 type GroupPlan =
-  | { evalId: string; kind: "ready"; input: CreateEvaluationInput }
-  | { evalId: string; kind: "duplicate" }
-  | { evalId: string; kind: "error"; message: string };
+  | { evalId: string; kind: "ready"; input: CreateEvaluationInput; row?: number }
+  | { evalId: string; kind: "duplicate"; row?: number }
+  | { evalId: string; kind: "error"; message: string; row?: number };
+
+/** The source sheet row a group came from (`__row`, stamped at parse time). */
+function rowOf(groupRows: Record<string, string>[]): number | undefined {
+  const raw = groupRows[0]?.__row;
+  const n = raw ? Number(raw) : NaN;
+  return Number.isFinite(n) ? n : undefined;
+}
 
 /** Resolve one eval_id group into a ready input, or a validation error (no DB). */
 function resolveGroup(
@@ -235,7 +244,12 @@ async function planGroups(
   for (const row of rows) {
     const evalId = row.eval_id;
     if (!evalId) {
-      plans.push({ evalId: "(blank)", kind: "error", message: "row is missing eval_id" });
+      plans.push({
+        evalId: "(blank)",
+        kind: "error",
+        message: "row is missing eval_id",
+        row: rowOf([row]),
+      });
       continue;
     }
     const list = groups.get(evalId);
@@ -253,15 +267,16 @@ async function planGroups(
   );
 
   for (const [evalId, groupRows] of groups) {
+    const row = rowOf(groupRows);
     if (existing.has(evalId)) {
-      plans.push({ evalId, kind: "duplicate" });
+      plans.push({ evalId, kind: "duplicate", row });
       continue;
     }
     const resolved = resolveGroup(reasonIndex, resolver, evalId, groupRows);
     plans.push(
       resolved.ok
-        ? { evalId, kind: "ready", input: resolved.input }
-        : { evalId, kind: "error", message: resolved.message },
+        ? { evalId, kind: "ready", input: resolved.input, row }
+        : { evalId, kind: "error", message: resolved.message, row },
     );
   }
   return plans;
@@ -288,7 +303,7 @@ export async function validateImport(
     ready: plans.filter((p) => p.kind === "ready").length,
     duplicate: plans.filter((p) => p.kind === "duplicate").length,
     errors: plans.flatMap((p) =>
-      p.kind === "error" ? [{ evalId: p.evalId, message: p.message }] : [],
+      p.kind === "error" ? [{ evalId: p.evalId, message: p.message, row: p.row }] : [],
     ),
   };
 }
@@ -307,11 +322,11 @@ export async function importEvaluations(
     if (plan.kind === "duplicate") {
       skipped += 1;
     } else if (plan.kind === "error") {
-      errors.push({ evalId: plan.evalId, message: plan.message });
+      errors.push({ evalId: plan.evalId, message: plan.message, row: plan.row });
     } else {
       const outcome = await createEvaluation(config, plan.input);
       if (outcome.ok) imported += 1;
-      else errors.push({ evalId: plan.evalId, message: outcome.error });
+      else errors.push({ evalId: plan.evalId, message: outcome.error, row: plan.row });
     }
   }
 

@@ -122,9 +122,35 @@ describe("transformWide", () => {
     });
   });
 
-  it("gives identical calls the same deterministic eval_id", () => {
+  /**
+   * The id basis (agent, date, phone, call type, monitoring type, call id) does
+   * NOT uniquely identify a call — the same agent can handle the same number
+   * twice in a day, and call_id is optional. Such rows must stay separate calls:
+   * collapsing them under-counts the import and merges their flags.
+   */
+  it("keeps rows with a repeated id basis as separate calls", () => {
     const t = transformWide(config, [{ ...calls[0] }, { ...calls[0] }], new Map());
-    const ids = t.rows.map((r) => r.eval_id);
-    expect(new Set(ids).size).toBe(1);
+    const ids = [...new Set(t.rows.map((r) => r.eval_id))];
+    expect(ids).toHaveLength(2);
+    // The first keeps the bare hash, so already-imported ids still match.
+    expect(ids[1]).toBe(`${ids[0]}-2`);
+    expect(t.repeatedBasis).toBe(1);
+  });
+
+  it("is still idempotent: the same file twice yields the same ids", () => {
+    const run = () =>
+      transformWide(
+        config,
+        [{ ...calls[0] }, { ...calls[0] }, { ...calls[1] }],
+        new Map(),
+      ).rows.map((r) => r.eval_id);
+    expect(run()).toEqual(run());
+  });
+
+  it("stamps the sheet row on every generated row, for error reporting", () => {
+    const t = transformWide(config, calls, new Map());
+    // rowNumber is the 1-based data row; the header is sheet row 1. Call 2 is
+    // absent because its reason is unmapped — it produces no row until mapped.
+    expect(t.rows.map((r) => r.__row)).toEqual(["2", "4"]);
   });
 });

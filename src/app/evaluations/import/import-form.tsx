@@ -175,13 +175,37 @@ export function ImportForm() {
             imported · <strong>{report.errors.length}</strong> error(s)
           </p>
           {report.errors.length > 0 && (
-            <ul style={{ margin: "0.25rem 0 0.75rem", paddingLeft: "1.2rem" }}>
-              {report.errors.slice(0, 50).map((e, i) => (
-                <li key={i}>
-                  <code>{e.evalId}</code> — {e.message}
-                </li>
-              ))}
-            </ul>
+            <>
+              <p className="muted" style={{ fontSize: "0.85rem", margin: "0.25rem 0 0.4rem" }}>
+                Row numbers match the uploaded sheet, so you can open it and go straight to the
+                line. Nothing is imported until every error is fixed and you re-validate.
+              </p>
+              <div style={{ overflowX: "auto", marginBottom: "0.75rem" }}>
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: 70 }}>Row</th>
+                      <th>Problem</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.errors.slice(0, 100).map((e, i) => (
+                      <tr key={i}>
+                        <td style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+                          {e.row != null ? e.row : "—"}
+                        </td>
+                        <td>{e.message}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {report.errors.length > 100 && (
+                <p className="muted" style={{ fontSize: "0.85rem" }}>
+                  Showing the first 100 of {report.errors.length}.
+                </p>
+              )}
+            </>
           )}
           <button
             type="button"
