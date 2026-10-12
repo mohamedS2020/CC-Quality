@@ -59,6 +59,33 @@ describe("parseWide", () => {
     ],
   };
 
+  /**
+   * REGRESSION: a real sheet opened with an agent-roster "Join Date" column.
+   * It satisfied the generic /date/ rule, won on column order, and every call
+   * took the agent's join date as its call date — which also fed the eval_id
+   * and made unrelated rows collide.
+   */
+  it("ignores an agent Join Date column and uses the real Call Date", () => {
+    const withJoinDate = {
+      header: ["Join Date", "AGENT NAME", "Login ID", "Call Date", "Mobile Number", "CC"],
+      rows: [["2021-03-01", "Ann", "120", "2025-07-01", "1007005658", ""]],
+    };
+    const [call] = parseWide(withJoinDate, CODES);
+    expect(call.meta.call_date).toBe("2025-07-01");
+    expect(Object.values(call.meta)).not.toContain("2021-03-01");
+  });
+
+  it("lets a specific header beat a loose one whatever the column order", () => {
+    const loose = {
+      header: ["Some Date", "Call Date", "Login ID", "Monitoring Type", "Call Type"],
+      rows: [["2020-01-01", "2025-07-09", "120", "Live", "Facility Request"]],
+    };
+    const [call] = parseWide(loose, CODES);
+    expect(call.meta.call_date).toBe("2025-07-09");
+    expect(call.meta.call_type).toBe("Facility Request");
+    expect(call.meta.monitoring_type).toBe("Live");
+  });
+
   it("classifies columns and pivots each row into meta + section flags", () => {
     const calls = parseWide(sheet, CODES);
     expect(calls).toHaveLength(2);

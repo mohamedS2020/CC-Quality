@@ -20,27 +20,46 @@ export interface WideCall {
 }
 
 type Column =
-  { kind: "section"; code: string } | { kind: "meta"; field: string } | { kind: "ignore" };
+  | { kind: "section"; code: string }
+  | { kind: "meta"; field: string; weak: boolean }
+  | { kind: "ignore" };
 
-// Ordered so specific headers win (transaction/monitoring before the generic "type").
-const META_MATCHERS: [RegExp, string][] = [
+/**
+ * Columns describing the AGENT, not the call. These must be rejected before the
+ * meta matchers run: "Join Date" otherwise satisfies the generic /date/ rule and
+ * every call inherits the agent's join date as its call date (and, because
+ * call_date feeds the eval_id, rows then collide and merge).
+ */
+const ROSTER_HEADERS = /\b(join|joined|hire|hired|hiring|tenure|seniority)\b/i;
+
+/**
+ * Ordered so specific headers win (transaction/monitoring before the generic
+ * "type"). `weak: true` marks a loose fallback that a specific header may
+ * override, so column ORDER cannot decide which column wins.
+ */
+const META_MATCHERS: [RegExp, string, boolean?][] = [
   [/login/i, "login_id"],
-  [/agent/i, "agent_name"],
-  [/\bdate\b/i, "call_date"],
+  [/call\s*id/i, "call_id"],
+  [/call\s*date|date\s*of\s*call/i, "call_date"],
+  [/coaching\s*date/i, "coaching_date"],
   [/mobile|phone/i, "mobile"],
   [/transaction/i, "transaction_type"],
   [/monitoring/i, "monitoring_type"],
-  [/call\s*type|\btype\b/i, "call_type"],
+  [/call\s*type/i, "call_type"],
   [/owner|\bqa\b/i, "qa_owner"],
-  [/call\s*id/i, "call_id"],
+  [/agent/i, "agent_name"],
+  // Loose fallbacks last, and overridable by any specific header above.
+  [/\bdate\b/i, "call_date", true],
+  [/\btype\b/i, "call_type", true],
 ];
 
 function classify(header: string[], configCodes: readonly string[]): Column[] {
   return header.map((h) => {
     const code = sectionCodeFor(h, configCodes);
     if (code) return { kind: "section", code };
-    for (const [re, field] of META_MATCHERS) {
-      if (re.test(h)) return { kind: "meta", field };
+    if (ROSTER_HEADERS.test(h)) return { kind: "ignore" };
+    for (const [re, field, weak] of META_MATCHERS) {
+      if (re.test(h)) return { kind: "meta", field, weak: weak === true };
     }
     return { kind: "ignore" };
   });
@@ -81,12 +100,21 @@ export function parseWide(sheet: RawSheet, configCodes: readonly string[]): Wide
 
   return sheet.rows.map((cells, index) => {
     const meta: Record<string, string> = {};
+    const fromWeak = new Set<string>(); // fields filled by a loose header match
     const flags: WideFlag[] = [];
 
     cols.forEach((col, i) => {
       const value = (cells[i] ?? "").trim();
       if (col.kind === "meta") {
-        if (value && !meta[col.field]) meta[col.field] = value;
+        if (!value) return;
+        // First non-empty wins, EXCEPT that a specific header ("Call Date")
+        // overrides one claimed by a loose fallback ("…Date") regardless of
+        // which column came first.
+        const taken = meta[col.field] !== undefined;
+        if (taken && !(fromWeak.has(col.field) && !col.weak)) return;
+        meta[col.field] = value;
+        if (col.weak) fromWeak.add(col.field);
+        else fromWeak.delete(col.field);
       } else if (col.kind === "section" && value) {
         flags.push({ sectionCode: col.code, source: value });
       }
