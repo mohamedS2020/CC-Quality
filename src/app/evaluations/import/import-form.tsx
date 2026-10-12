@@ -110,6 +110,20 @@ export function ImportForm() {
         )}
       </div>
 
+      {wide && wide.repeatedBasis > 0 && (
+        <div className="card" style={{ borderColor: "var(--warning)" }}>
+          <strong>
+            {wide.repeatedBasis} row{wide.repeatedBasis === 1 ? "" : "s"} repeat another row&apos;s
+            details
+          </strong>
+          <p className="muted" style={{ fontSize: "0.85rem", margin: "0.2rem 0 0" }}>
+            Same agent, date, phone number, call type and monitoring type as an earlier row. They
+            are imported as <strong>separate calls</strong>, not merged. If any of them is the same
+            call entered twice by mistake, remove it from the sheet and re-validate.
+          </p>
+        </div>
+      )}
+
       {validation && !validation.ok && (
         <p role="alert" style={{ color: "var(--danger)" }}>
           {validation.message}

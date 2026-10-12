@@ -24,6 +24,8 @@ export interface WideExtras {
   unmapped: UnmappedReason[];
   reasonOptions: { sectionCode: string; options: ReasonOption[] }[];
   callCount: number;
+  /** Rows repeating another row's identifying fields (kept as separate calls). */
+  repeatedBasis: number;
 }
 
 export type ValidateResult =
@@ -96,6 +98,7 @@ async function buildRows(
       unmapped: transformed.unmapped,
       reasonOptions: reasonOptionsFor(config),
       callCount: transformed.callCount,
+      repeatedBasis: transformed.repeatedBasis,
     },
   };
 }
