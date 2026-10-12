@@ -9,17 +9,26 @@ import type { LeaderboardRow } from "@/lib/reports/metrics";
  */
 
 interface Tier {
-  min: number;
   label: string;
   color: string;
 }
-const TIERS: Tier[] = [
-  { min: 90, label: "Excellent", color: "var(--success)" },
-  { min: 75, label: "Strong", color: "var(--accent)" },
-  { min: 50, label: "Developing", color: "var(--warning)" },
-  { min: 0, label: "Needs focus", color: "var(--danger)" },
-];
-const tierOf = (rank: number): Tier => TIERS.find((t) => rank >= t.min) ?? TIERS[TIERS.length - 1];
+
+/**
+ * Review levels. Rank is the sum of each section's rank weight for sections the
+ * agent met the benchmark on, and config validation holds those weights to a
+ * total of 100 — so rank is 0–100 and 100 is the ceiling. A level above 100 is
+ * therefore unreachable by construction, which is why there are three here and
+ * not four: meeting every benchmark scores exactly 100, the top of level 3.
+ */
+const TIERS: Record<"meeting" | "needs" | "below", Tier> = {
+  meeting: { label: "Meeting Requirements (3)", color: "var(--success)" },
+  needs: { label: "Needs Improvement (2)", color: "var(--warning)" },
+  below: { label: "Below Requirements (1)", color: "var(--danger)" },
+};
+
+/** ≤60 → level 1 · above 60 and below 80 → level 2 · ≥80 → level 3. */
+const tierOf = (rank: number): Tier =>
+  rank >= 80 ? TIERS.meeting : rank > 60 ? TIERS.needs : TIERS.below;
 
 export function Leaderboard({ rows, baseQuery }: { rows: LeaderboardRow[]; baseQuery?: string }) {
   if (rows.length === 0) return <p className="muted">No agents in scope.</p>;
