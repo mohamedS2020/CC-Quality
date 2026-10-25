@@ -74,9 +74,31 @@ export async function transitionPeriod(
   return { ok: true, period: await prisma.period.update({ where: { id: periodId }, data }) };
 }
 
-export function listPeriods() {
-  return prisma.period.findMany({
-    orderBy: [{ type: "asc" }, { label: "desc" }],
-    include: { _count: { select: { evaluations: true } } },
-  });
+export type PeriodWithCounts = Period & { calls: number; corrected: number };
+
+/**
+ * Periods with their call counts. Only CURRENT versions count as calls (a
+ * correction supersedes its original, which stays in the period as history),
+ * so this matches the reports; `corrected` is how many of those calls are
+ * corrections.
+ */
+export async function listPeriods(): Promise<PeriodWithCounts[]> {
+  const [periods, counts] = await Promise.all([
+    prisma.period.findMany({ orderBy: [{ type: "asc" }, { label: "desc" }] }),
+    prisma.evaluation.groupBy({
+      by: ["periodId", "version"],
+      where: { supersededAt: null, periodId: { not: null } },
+      _count: { _all: true },
+    }),
+  ]);
+
+  const byPeriod = new Map<number, { calls: number; corrected: number }>();
+  for (const row of counts) {
+    const entry = byPeriod.get(row.periodId!) ?? { calls: 0, corrected: 0 };
+    entry.calls += row._count._all;
+    if (row.version > 1) entry.corrected += row._count._all;
+    byPeriod.set(row.periodId!, entry);
+  }
+
+  return periods.map((p) => ({ ...p, ...(byPeriod.get(p.id) ?? { calls: 0, corrected: 0 }) }));
 }

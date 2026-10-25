@@ -25,7 +25,8 @@ export default async function PeriodsPage() {
     type: p.type,
     label: p.label,
     status: p.status,
-    evaluations: p._count.evaluations,
+    calls: p.calls,
+    corrected: p.corrected,
     lockedAt: p.lockedAt ? p.lockedAt.toISOString() : null,
   }));
 

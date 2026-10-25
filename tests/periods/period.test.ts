@@ -11,9 +11,11 @@ import { baselineConfigInput } from "@/lib/config/baseline";
 import { createConfigVersion } from "@/lib/config/versioning";
 import { loadConfigById, type LoadedConfig } from "@/lib/config/loader";
 import { createEvaluation } from "@/lib/evaluations/create";
+import { correctEvaluation } from "@/lib/evaluations/correct";
 import {
   canTransition,
   isPeriodEditable,
+  listPeriods,
   monthPeriodBounds,
   resolveMonthlyPeriod,
   transitionPeriod,
@@ -151,5 +153,38 @@ describe("period lifecycle (DB)", () => {
     const bad = await transitionPeriod(period.id, "SCORING", userId);
     expect(bad.ok).toBe(false);
     await transitionPeriod(period.id, "OPEN", userId); // restore for cleanup
+  });
+
+  it("counts only current versions as calls, and reports how many were corrected", async () => {
+    const period = await resolveMonthlyPeriod(CALL_DATE);
+    const before = (await listPeriods()).find((p) => p.id === period.id);
+    expect(before).toBeDefined();
+    if (!before) return;
+
+    const created = await createEvaluation(config, {
+      agentLoginId: AGENT_ID,
+      qaOwner: "tester",
+      callDate: CALL_DATE,
+      flaggedReasonIds: [ncReason],
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const corrected = await correctEvaluation(
+      created.evalId,
+      {
+        agentLoginId: AGENT_ID,
+        qaOwner: "tester",
+        callDate: CALL_DATE,
+        flaggedReasonIds: [],
+        reason: "flagged in error",
+      },
+      userId,
+    );
+    expect(corrected.ok).toBe(true);
+
+    // The superseded original stays in the period as history but is not a call.
+    const after = (await listPeriods()).find((p) => p.id === period.id);
+    expect(after?.calls).toBe(before.calls + 1);
+    expect(after?.corrected).toBe(before.corrected + 1);
   });
 });
