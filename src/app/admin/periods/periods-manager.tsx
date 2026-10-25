@@ -10,7 +10,8 @@ export type PeriodRow = {
   type: PeriodType;
   label: string;
   status: PeriodStatus;
-  evaluations: number;
+  calls: number; // current versions only — matches the reports
+  corrected: number; // how many of those calls are corrections
   lockedAt: string | null;
 };
 
@@ -90,7 +91,12 @@ export function PeriodsManager({ initialPeriods }: { initialPeriods: PeriodRow[]
                       <span className="muted"> · {new Date(p.lockedAt).toLocaleDateString()}</span>
                     ) : null}
                   </td>
-                  <td style={{ fontVariantNumeric: "tabular-nums" }}>{p.evaluations}</td>
+                  <td style={{ fontVariantNumeric: "tabular-nums" }}>
+                    {p.calls}
+                    {p.corrected > 0 ? (
+                      <span className="muted"> ({p.corrected} corrected)</span>
+                    ) : null}
+                  </td>
                   <td>
                     <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
                       {NEXT[p.status].map((to) => (

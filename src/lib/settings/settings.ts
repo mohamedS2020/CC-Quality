@@ -6,10 +6,12 @@ import { prisma } from "@/lib/db/client";
  * that must be editable anytime WITHOUT minting a new config version, because
  * they don't affect scoring reproducibility:
  *  - `call_types`   — the evaluation form's Call type dropdown options.
+ *  - `monitoring_types` — the evaluation form's Monitoring type dropdown options.
  *  - `coaching_cc`  — CC recipients added to every coaching email.
  */
 
 const CALL_TYPES = "call_types";
+const MONITORING_TYPES = "monitoring_types";
 const COACHING_CC = "coaching_cc";
 
 async function getList(key: string): Promise<string[]> {
@@ -42,6 +44,35 @@ export const getCallTypes = async (): Promise<string[]> =>
   (await getList(CALL_TYPES)).sort((a, b) => a.localeCompare(b, "en", { sensitivity: "base" }));
 
 export const setCallTypes = (values: string[]): Promise<void> => setList(CALL_TYPES, values);
+
+/** Starting Monitoring type options, used until an admin saves the list. */
+export const DEFAULT_MONITORING_TYPES = [
+  "Agent Level",
+  "Program Level",
+  "Staff",
+  "Certification",
+  "Certification Coaching 1",
+  "Certification Coaching 2",
+  "Certification Coaching 3",
+  "Not Certify",
+  "S.B.S",
+  "Agent Level - New",
+  "Program Level - New",
+  "TL",
+];
+
+/**
+ * Monitoring type options, in the order the admin arranged them (unlike call
+ * types, the order is meaningful: Agent Level, Program Level, …). Falls back to
+ * the defaults until the setting has been saved once.
+ */
+export async function getMonitoringTypes(): Promise<string[]> {
+  const row = await prisma.setting.findUnique({ where: { key: MONITORING_TYPES } });
+  return row ? getList(MONITORING_TYPES) : [...DEFAULT_MONITORING_TYPES];
+}
+
+export const setMonitoringTypes = (values: string[]): Promise<void> =>
+  setList(MONITORING_TYPES, values);
 
 export const getCoachingCc = (): Promise<string[]> => getList(COACHING_CC);
 export const setCoachingCc = (values: string[]): Promise<void> => setList(COACHING_CC, values);

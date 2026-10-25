@@ -3,6 +3,8 @@ export interface ScoreSheetRubric {
   sections: ScoreSheetSection[];
   /** Config-driven options for the Call type dropdown. */
   callTypes: string[];
+  /** Options for the Monitoring type dropdown (non-versioned settings). */
+  monitoringTypes: string[];
 }
 
 export interface ScoreSheetSection {

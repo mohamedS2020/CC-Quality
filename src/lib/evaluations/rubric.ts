@@ -3,9 +3,14 @@ import type { LoadedConfig } from "@/lib/config/loader";
 
 /**
  * Flatten a loaded config into the serializable rubric the score sheet renders.
- * `callTypes` comes from the non-versioned settings store (not the config).
+ * `callTypes` and `monitoringTypes` come from the non-versioned settings store
+ * (not the config).
  */
-export function rubricFromConfig(config: LoadedConfig, callTypes: string[]): ScoreSheetRubric {
+export function rubricFromConfig(
+  config: LoadedConfig,
+  callTypes: string[],
+  monitoringTypes: string[],
+): ScoreSheetRubric {
   return {
     sections: config.sections.map((s) => ({
       id: s.id,
@@ -22,5 +27,6 @@ export function rubricFromConfig(config: LoadedConfig, callTypes: string[]): Sco
       })),
     })),
     callTypes,
+    monitoringTypes,
   };
 }

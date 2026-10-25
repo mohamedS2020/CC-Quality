@@ -4,7 +4,8 @@ import { loadConfigById } from "@/lib/config/loader";
 import { prisma } from "@/lib/db/client";
 import { agentRepository } from "@/lib/db/repositories";
 import { rubricFromConfig } from "@/lib/evaluations/rubric";
-import { getCallTypes } from "@/lib/settings/settings";
+import { getCallTypes, getMonitoringTypes } from "@/lib/settings/settings";
+import { formatDuration } from "@/lib/evaluations/duration";
 import { EMPTY_META, type MetaState } from "../../_components/score-sheet-fields";
 import { CorrectionForm } from "./correction-form";
 
@@ -63,11 +64,12 @@ export default async function CorrectEvaluationPage({
     callDate: ymd(evaluation.callDate),
     callStart: hhmm(evaluation.callStart),
     callEnd: hhmm(evaluation.callEnd),
-    durationSeconds: evaluation.durationSeconds != null ? String(evaluation.durationSeconds) : "",
+    duration: evaluation.durationSeconds != null ? formatDuration(evaluation.durationSeconds) : "",
     callId: evaluation.callId ?? "",
     queue: evaluation.queue ?? "",
     transactionType: evaluation.transactionType ?? "",
-    monitoringType: evaluation.monitoringType ?? "",
+    // Imported values can carry stray spaces ("Agent Level "); trim so they match the list.
+    monitoringType: evaluation.monitoringType?.trim() ?? "",
     callType: evaluation.callType ?? "",
     mobile: evaluation.mobileMasked ?? "",
     coachingDate: ymd(evaluation.coachingDate),
@@ -85,7 +87,7 @@ export default async function CorrectEvaluationPage({
         evalId={evaluation.evalId}
         version={evaluation.version}
         agentName={evaluation.agent.agentName}
-        rubric={rubricFromConfig(config, await getCallTypes())}
+        rubric={rubricFromConfig(config, await getCallTypes(), await getMonitoringTypes())}
         agents={agents}
         initialMeta={initialMeta}
         initialSelected={evaluation.lines.map((l) => l.errorReasonId)}

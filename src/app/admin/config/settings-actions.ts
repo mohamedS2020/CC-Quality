@@ -3,11 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { authorize } from "@/lib/auth";
 import { AuthError } from "@/lib/auth/errors";
-import { setCallTypes, setCoachingCc } from "@/lib/settings/settings";
+import { setCallTypes, setCoachingCc, setMonitoringTypes } from "@/lib/settings/settings";
 
 /**
  * Direct-save actions for the non-versioned operational settings (call types,
- * coaching CC). Editing these never mints a new config version. Gated by
+ * monitoring types, coaching CC). Editing these never mints a new config version. Gated by
  * `config.edit`.
  */
 
@@ -35,6 +35,16 @@ export async function saveCallTypesAction(callTypes: string[]): Promise<Settings
   const denied = await guard();
   if (denied) return denied;
   await setCallTypes(callTypes);
+  revalidatePath("/admin/config");
+  return { ok: true };
+}
+
+export async function saveMonitoringTypesAction(
+  monitoringTypes: string[],
+): Promise<SettingsResult> {
+  const denied = await guard();
+  if (denied) return denied;
+  await setMonitoringTypes(monitoringTypes);
   revalidatePath("/admin/config");
   return { ok: true };
 }

@@ -47,8 +47,16 @@ export function ScoreSheetForm({
   const doSubmit = (coaching?: string) => {
     const draft: EvaluationDraft = { ...metaToFields(meta), flaggedReasonIds: [...selected] };
     startTransition(async () => {
-      setResult(await createEvaluationAction(draft, coaching));
+      const res = await createEvaluationAction(draft, coaching);
+      setResult(res);
       setCoachOpen(false);
+      // Saved → start a clean sheet for the next call (the success message stays).
+      if (res.ok) {
+        setMeta({ ...EMPTY_META, qaOwner: defaultQaOwner });
+        setSelected(new Set());
+        setCoachEmail(false);
+        setCoachText("");
+      }
     });
   };
 
