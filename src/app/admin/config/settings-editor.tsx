@@ -1,11 +1,16 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { saveCallTypesAction, saveCoachingCcAction, type SettingsResult } from "./settings-actions";
+import {
+  saveCallTypesAction,
+  saveCoachingCcAction,
+  saveMonitoringTypesAction,
+  type SettingsResult,
+} from "./settings-actions";
 
 /**
- * Non-versioned operational settings (call types + coaching-email CC), laid out
- * as a dedicated two-column section. Each list is scrollable (so a long list
+ * Non-versioned operational settings (call types, monitoring types, coaching-email
+ * CC), laid out as a dedicated multi-column section. Each list is scrollable (so a long list
  * doesn't stretch the page) with inline "value + delete" rows, and saves
  * immediately via its own action — no new config version is created.
  */
@@ -128,12 +133,16 @@ function Panel({
 
 export function SettingsEditor({
   initialCallTypes,
+  initialMonitoringTypes,
   initialCoachingCc,
 }: {
   initialCallTypes: string[];
+  initialMonitoringTypes: string[];
   initialCoachingCc: string[];
 }) {
   const [callTypes, setCallTypes] = useState(initialCallTypes);
+  const [monitoringTypes, setMonitoringTypes] = useState(initialMonitoringTypes);
+  const [mtResult, setMtResult] = useState<SettingsResult | null>(null);
   const [cc, setCc] = useState(initialCoachingCc);
   const [ctResult, setCtResult] = useState<SettingsResult | null>(null);
   const [ccResult, setCcResult] = useState<SettingsResult | null>(null);
@@ -179,6 +188,28 @@ export function SettingsEditor({
             placeholder="e.g. Facility Request"
             idPrefix="callType"
             emptyText="No call types yet."
+          />
+        </Panel>
+
+        <Panel
+          title="Monitoring types"
+          subtitle="Options in the evaluation form’s Monitoring type dropdown, in this order."
+          count={monitoringTypes.length}
+          saving={pending}
+          result={mtResult}
+          onSave={() =>
+            start(async () => setMtResult(await saveMonitoringTypesAction(monitoringTypes)))
+          }
+        >
+          <EditableList
+            items={monitoringTypes}
+            onChange={(v) => {
+              setMonitoringTypes(v);
+              setMtResult(null);
+            }}
+            placeholder="e.g. Agent Level"
+            idPrefix="monitoringType"
+            emptyText="No monitoring types yet."
           />
         </Panel>
 

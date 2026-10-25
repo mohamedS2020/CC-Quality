@@ -42,6 +42,7 @@ const rubric: ScoreSheetRubric = {
     },
   ],
   callTypes: ["Inbound", "Outbound"],
+  monitoringTypes: ["Agent Level", "Program Level"],
 };
 const agents: ScoreSheetAgent[] = [{ loginId: 5001, agentName: "Test Agent" }];
 
@@ -80,6 +81,78 @@ describe("ScoreSheetForm (form → derivation boundary)", () => {
     expect(draft).not.toHaveProperty("failedScorecard");
 
     expect(await screen.findByText(/Saved evaluation E-1/)).toBeInTheDocument();
+  });
+
+  it("clears the sheet after a successful save, keeping the QA owner", async () => {
+    const user = userEvent.setup();
+    mockAction.mockResolvedValue({ ok: true, evalId: "E-2" });
+    render(<ScoreSheetForm rubric={rubric} agents={agents} defaultQaOwner="me" />);
+
+    await user.selectOptions(screen.getByLabelText("agent"), "5001");
+    fireEvent.change(screen.getByLabelText("callDate"), { target: { value: "2025-07-15" } });
+    await user.selectOptions(screen.getByLabelText("monitoringType"), "Program Level");
+    await user.type(screen.getByLabelText("duration"), "3:30");
+    await user.click(screen.getByLabelText("reason-1000"));
+    await user.click(screen.getByRole("button", { name: /save score sheet/i }));
+
+    expect(await screen.findByText(/Saved evaluation E-2/)).toBeInTheDocument();
+    expect(mockAction.mock.calls[0][0].monitoringType).toBe("Program Level");
+    expect(screen.getByLabelText("agent")).toHaveValue("");
+    expect(screen.getByLabelText("callDate")).toHaveValue("");
+    expect(screen.getByLabelText("monitoringType")).toHaveValue("");
+    expect(screen.getByLabelText("duration")).toHaveValue("");
+    expect(screen.getByLabelText("reason-1000")).not.toBeChecked();
+    expect(screen.getByTestId("section-1-count")).toHaveTextContent("0");
+    expect(screen.getByLabelText("qaOwner")).toHaveValue("me");
+  });
+
+  it("keeps the sheet filled when the save fails", async () => {
+    const user = userEvent.setup();
+    mockAction.mockResolvedValue({ ok: false, message: "Agent 5001 is inactive." });
+    render(<ScoreSheetForm rubric={rubric} agents={agents} defaultQaOwner="me" />);
+
+    await user.selectOptions(screen.getByLabelText("agent"), "5001");
+    fireEvent.change(screen.getByLabelText("callDate"), { target: { value: "2025-07-15" } });
+    await user.click(screen.getByLabelText("reason-1000"));
+    await user.click(screen.getByRole("button", { name: /save score sheet/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("inactive");
+    expect(screen.getByLabelText("agent")).toHaveValue("5001");
+    expect(screen.getByLabelText("reason-1000")).toBeChecked();
+  });
+
+  it("takes duration as minutes:seconds, normalises pasted text, and submits seconds", async () => {
+    const user = userEvent.setup();
+    mockAction.mockResolvedValue({ ok: true, evalId: "E-3" });
+    render(<ScoreSheetForm rubric={rubric} agents={agents} defaultQaOwner="me" />);
+    const duration = screen.getByLabelText("duration");
+
+    // Pasted from the source sheet: "hh:mm:ss" with a trailing tab.
+    await user.click(duration);
+    await user.paste("00:07:26\t");
+    expect(duration).toHaveValue("07:26");
+
+    // Typed short form is tidied on blur.
+    await user.clear(duration);
+    await user.type(duration, "3:5");
+    await user.tab();
+    expect(duration).toHaveValue("03:05");
+
+    await user.selectOptions(screen.getByLabelText("agent"), "5001");
+    fireEvent.change(screen.getByLabelText("callDate"), { target: { value: "2025-07-15" } });
+    await user.click(screen.getByRole("button", { name: /save score sheet/i }));
+    expect(mockAction.mock.calls[0][0].durationSeconds).toBe(185);
+  });
+
+  it("blocks saving an unreadable duration", async () => {
+    const user = userEvent.setup();
+    render(<ScoreSheetForm rubric={rubric} agents={agents} defaultQaOwner="me" />);
+    await user.selectOptions(screen.getByLabelText("agent"), "5001");
+    fireEvent.change(screen.getByLabelText("callDate"), { target: { value: "2025-07-15" } });
+    await user.type(screen.getByLabelText("duration"), "3:75");
+
+    expect(screen.getByRole("alert")).toHaveTextContent("minutes:seconds");
+    expect(screen.getByRole("button", { name: /save score sheet/i })).toBeDisabled();
   });
 
   it("disables submit until agent, call date, and QA owner are all set", () => {

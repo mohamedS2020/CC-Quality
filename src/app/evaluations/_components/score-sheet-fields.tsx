@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { durationIsValid, normalizeDuration, parseDuration } from "@/lib/evaluations/duration";
 import type { ScoreSheetAgent, ScoreSheetRubric } from "../new/types";
 
 /** The controlled metadata state shared by the new-score and correction forms. */
@@ -10,7 +11,7 @@ export interface MetaState {
   callDate: string;
   callStart: string;
   callEnd: string;
-  durationSeconds: string;
+  duration: string; // "mm:ss" as typed; stored as seconds
   callId: string;
   queue: string;
   transactionType: string;
@@ -27,7 +28,7 @@ export const EMPTY_META: MetaState = {
   callDate: "",
   callStart: "",
   callEnd: "",
-  durationSeconds: "",
+  duration: "",
   callId: "",
   queue: "",
   transactionType: "",
@@ -42,10 +43,8 @@ const TEXT_FIELDS: { key: keyof MetaState; label: string; type: string }[] = [
   { key: "callDate", label: "Call date", type: "date" },
   { key: "callStart", label: "Call start", type: "time" },
   { key: "callEnd", label: "Call end", type: "time" },
-  { key: "durationSeconds", label: "Duration (sec)", type: "number" },
   { key: "callId", label: "Call ID", type: "text" },
   { key: "queue", label: "Queue", type: "text" },
-  { key: "monitoringType", label: "Monitoring type", type: "text" },
   { key: "mobile", label: "Phone Number (PII)", type: "text" },
   { key: "coachingDate", label: "Coaching date", type: "date" },
 ];
@@ -58,7 +57,7 @@ export function metaToFields(meta: MetaState) {
     callDate: meta.callDate,
     callStart: meta.callStart || undefined,
     callEnd: meta.callEnd || undefined,
-    durationSeconds: meta.durationSeconds ? Number(meta.durationSeconds) : undefined,
+    durationSeconds: parseDuration(meta.duration) ?? undefined,
     mobile: meta.mobile || undefined,
     callId: meta.callId || undefined,
     queue: meta.queue || undefined,
@@ -71,7 +70,12 @@ export function metaToFields(meta: MetaState) {
 }
 
 export function metaIsComplete(meta: MetaState): boolean {
-  return meta.agentLoginId !== "" && meta.callDate !== "" && meta.qaOwner.trim() !== "";
+  return (
+    meta.agentLoginId !== "" &&
+    meta.callDate !== "" &&
+    meta.qaOwner.trim() !== "" &&
+    durationIsValid(meta.duration)
+  );
 }
 
 const fieldsGrid: React.CSSProperties = {
@@ -169,6 +173,47 @@ export function ScoreSheetFields({
                 </option>
               ))}
             </select>
+          </label>
+          <label className="field">
+            <span>Monitoring type</span>
+            <select
+              className="select"
+              aria-label="monitoringType"
+              value={meta.monitoringType}
+              onChange={(e) => setField("monitoringType", e.target.value)}
+            >
+              <option value="">—</option>
+              {/* Keep a legacy value that's no longer in the settings so old calls still display. */}
+              {meta.monitoringType && !rubric.monitoringTypes.includes(meta.monitoringType) && (
+                <option value={meta.monitoringType}>{meta.monitoringType} (legacy)</option>
+              )}
+              {rubric.monitoringTypes.map((mt) => (
+                <option key={mt} value={mt}>
+                  {mt}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>Duration (mm:ss)</span>
+            <input
+              className="input"
+              aria-label="duration"
+              inputMode="numeric"
+              placeholder="03:30"
+              value={meta.duration}
+              onChange={(e) => setField("duration", e.target.value)}
+              onBlur={(e) => setField("duration", normalizeDuration(e.target.value))}
+              onPaste={(e) => {
+                e.preventDefault();
+                setField("duration", normalizeDuration(e.clipboardData.getData("text")));
+              }}
+            />
+            {!durationIsValid(meta.duration) && (
+              <span style={{ color: "var(--danger)", fontSize: "0.8rem" }} role="alert">
+                Use minutes:seconds, e.g. 03:30
+              </span>
+            )}
           </label>
           {TEXT_FIELDS.map((f) => (
             <label key={f.key} className="field">

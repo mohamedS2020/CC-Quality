@@ -3,7 +3,7 @@ import { getAuthContext } from "@/lib/auth";
 import { agentRepository } from "@/lib/db/repositories";
 import { loadActiveConfig } from "@/lib/config/loader";
 import { rubricFromConfig } from "@/lib/evaluations/rubric";
-import { getCallTypes } from "@/lib/settings/settings";
+import { getCallTypes, getMonitoringTypes } from "@/lib/settings/settings";
 import { ScoreSheetForm } from "./score-sheet-form";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +33,7 @@ export default async function NewEvaluationPage() {
     );
   }
 
-  const rubric = rubricFromConfig(config, await getCallTypes());
+  const rubric = rubricFromConfig(config, await getCallTypes(), await getMonitoringTypes());
 
   const agents = (await agentRepository.list({ activeOnly: true })).map((a) => ({
     loginId: a.loginId,
