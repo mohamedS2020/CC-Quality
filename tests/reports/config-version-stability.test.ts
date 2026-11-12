@@ -98,11 +98,26 @@ afterAll(async () => {
   await prisma.scorecardConfig.deleteMany({ where: { id: { in: createdConfigIds } } });
   // Hand the active pointer back: deleting the version this test activated would
   // otherwise leave the database with NO active config.
-  if (previouslyActiveId != null) {
-    await prisma.scorecardConfig.update({
-      where: { id: previouslyActiveId },
-      data: { isActive: true },
-    });
+  // updateMany, not update: suites run in parallel, and another one may already
+  // have deleted that version (its own) — then fall back to the newest left.
+  const restored =
+    previouslyActiveId != null
+      ? (
+          await prisma.scorecardConfig.updateMany({
+            where: { id: previouslyActiveId },
+            data: { isActive: true },
+          })
+        ).count
+      : 0;
+  if (
+    previouslyActiveId != null &&
+    restored === 0 &&
+    !(await prisma.scorecardConfig.count({ where: { isActive: true } }))
+  ) {
+    const newest = await prisma.scorecardConfig.findFirst({ orderBy: { version: "desc" } });
+    if (newest) {
+      await prisma.scorecardConfig.update({ where: { id: newest.id }, data: { isActive: true } });
+    }
   }
   await prisma.$disconnect();
 });

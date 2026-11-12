@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { displayMobile, phoneSearchDigits } from "@/lib/pii";
 import {
   agentOptions,
+  dateRangeReversed,
   filterRows,
   filtersFromParams,
   filtersToParams,
@@ -16,10 +17,10 @@ import { Pager, PAGE_SIZE } from "../_components/pager";
 
 /**
  * Evaluations list with instant filters over the already-loaded, already-scoped
- * rows: Result (Pass/Fail) for everyone, plus agent, team leader and phone
- * number for admins/moderators (`canSearch`). Agent / team leader / result live
- * in the URL, so Back from a call keeps them; the phone never does (FR-19) — it
- * is stored masked (last 4 digits) and matched by suffix.
+ * rows: Result (Pass/Fail) and call-date From/To for everyone, plus agent, team
+ * leader and phone number for admins/moderators (`canSearch`). Everything but
+ * the phone lives in the URL, so Back from a call keeps it; the phone never does
+ * (FR-19) — it is stored masked (last 4 digits) and matched by suffix.
  */
 
 export interface EvalRow {
@@ -52,7 +53,15 @@ export function EvaluationsList({ rows, canSearch }: { rows: EvalRow[]; canSearc
   );
   const tls = useMemo(() => teamLeadOptions(rows), [rows]);
   const agents = useMemo(() => agentOptions(rows, filters.tl), [rows, filters.tl]);
-  const active = !!(filters.agent || filters.tl || filters.result || last4);
+  const reversed = dateRangeReversed(filters);
+  const active = !!(
+    filters.agent ||
+    filters.tl ||
+    filters.result ||
+    filters.from ||
+    filters.to ||
+    last4
+  );
 
   function update(patch: Partial<typeof filters>) {
     const next = { ...filters, ...patch };
@@ -73,7 +82,7 @@ export function EvaluationsList({ rows, canSearch }: { rows: EvalRow[]; canSearc
 
   function clearAll() {
     setQuery("");
-    update({ agent: "", tl: "", result: "" });
+    update({ agent: "", tl: "", result: "", from: "", to: "" });
   }
   const pageCount = Math.ceil(filtered.length / PAGE_SIZE);
   const clampedPage = Math.min(page, Math.max(0, pageCount - 1));
@@ -141,6 +150,28 @@ export function EvaluationsList({ rows, canSearch }: { rows: EvalRow[]; canSearc
             <option value="fail">Fail</option>
           </select>
         </label>
+        <label className="field" style={{ minWidth: 150 }}>
+          <span>From</span>
+          <input
+            className="input"
+            type="date"
+            aria-label="filter-from"
+            value={filters.from}
+            max={filters.to || undefined}
+            onChange={(e) => update({ from: e.target.value })}
+          />
+        </label>
+        <label className="field" style={{ minWidth: 150 }}>
+          <span>To</span>
+          <input
+            className="input"
+            type="date"
+            aria-label="filter-to"
+            value={filters.to}
+            min={filters.from || undefined}
+            onChange={(e) => update({ to: e.target.value })}
+          />
+        </label>
         {canSearch && (
           <label className="field" style={{ minWidth: 220 }}>
             <span>Phone number</span>
@@ -157,6 +188,11 @@ export function EvaluationsList({ rows, canSearch }: { rows: EvalRow[]; canSearc
               }}
             />
           </label>
+        )}
+        {reversed && (
+          <span className="badge badge-warning" role="alert" style={{ alignSelf: "center" }}>
+            “From” must be on or before “To” — dates ignored.
+          </span>
         )}
         {active && (
           <button type="button" className="btn btn-sm btn-ghost" onClick={clearAll}>

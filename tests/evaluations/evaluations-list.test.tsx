@@ -3,7 +3,7 @@
  * combine, the team picks narrow the agent list, the URL carries everything but
  * the phone number, and agents only get the Result filter.
  */
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { EvaluationsList, type EvalRow } from "@/app/evaluations/evaluations-list";
 
@@ -19,11 +19,12 @@ const mk = (
   agentName: string,
   tlName: string,
   failed: boolean,
+  callDate: string,
   phoneMasked = "******1234",
 ): EvalRow => ({
   ...base,
   evalId: id,
-  callDate: "2026-01-01",
+  callDate,
   agentLoginId,
   agentName,
   tlName,
@@ -33,10 +34,10 @@ const mk = (
 });
 
 const rows: EvalRow[] = [
-  mk("e1", 1, "Zed Agent", "TL A", false),
-  mk("e2", 1, "Zed Agent", "TL A", true, "******9999"),
-  mk("e3", 2, "Amy Agent", "TL A", false),
-  mk("e4", 3, "Bob Agent", "TL B", true),
+  mk("e1", 1, "Zed Agent", "TL A", false, "2026-01-10"),
+  mk("e2", 1, "Zed Agent", "TL A", true, "2026-01-20", "******9999"),
+  mk("e3", 2, "Amy Agent", "TL A", false, "2026-02-05"),
+  mk("e4", 3, "Bob Agent", "TL B", true, "2026-03-01"),
 ];
 
 const bodyRows = () => within(screen.getByRole("table")).getAllByRole("row").slice(1);
@@ -75,6 +76,18 @@ describe("EvaluationsList filters", () => {
     expect(window.location.search).toBe("");
   });
 
+  it("filters by From/To (inclusive), keeps them in the URL, and warns on a reversed range", () => {
+    render(<EvaluationsList rows={rows} canSearch />);
+    fireEvent.change(screen.getByLabelText("filter-from"), { target: { value: "2026-01-20" } });
+    fireEvent.change(screen.getByLabelText("filter-to"), { target: { value: "2026-02-05" } });
+    expect(bodyRows()).toHaveLength(2);
+    expect(window.location.search).toBe("?from=2026-01-20&to=2026-02-05");
+
+    fireEvent.change(screen.getByLabelText("filter-from"), { target: { value: "2026-03-01" } });
+    expect(screen.getByRole("alert")).toHaveTextContent("must be on or before");
+    expect(bodyRows()).toHaveLength(4); // reversed range is ignored, not "no results"
+  });
+
   it("drops a chosen agent who isn't on the newly picked team", async () => {
     const user = userEvent.setup();
     render(<EvaluationsList rows={rows} canSearch />);
@@ -101,5 +114,8 @@ describe("EvaluationsList filters", () => {
     expect(bodyRows()).toHaveLength(4); // a URL agent filter is ignored for agents
     await user.selectOptions(screen.getByLabelText("filter-result"), "pass");
     expect(bodyRows()).toHaveLength(2);
+    // Agents do get the date filter.
+    fireEvent.change(screen.getByLabelText("filter-from"), { target: { value: "2026-02-01" } });
+    expect(bodyRows()).toHaveLength(1);
   });
 });
