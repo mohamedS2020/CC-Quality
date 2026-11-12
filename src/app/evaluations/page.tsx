@@ -22,13 +22,16 @@ export default async function EvaluationsPage() {
   // Agents see only their own calls (FR-9); Admins/Moderators see all.
   const evaluations = await listCurrentEvaluations(agentScopeFor(ctx));
 
-  // Phone-number search is for Admins/Moderators only (agents are self-scoped).
+  // Phone search and the agent / team-leader filters are for Admins/Moderators;
+  // agents are self-scoped, so they only get the Pass/Fail filter.
   const canSearch = ctx.user.role !== "AGENT";
 
   const rows: EvalRow[] = evaluations.map((e) => ({
     evalId: e.evalId,
     callDate: e.callDate.toISOString().slice(0, 10),
+    agentLoginId: e.agentLoginId,
     agentName: e.agent.agentName,
+    tlName: e.agent.tlName,
     qaOwner: e.qaOwner,
     status: e.overallStatus ?? (e.failedScorecard ? "Fail" : "Pass"),
     failed: e.failedScorecard,
