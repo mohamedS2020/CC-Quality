@@ -31,7 +31,7 @@ export function listCurrentEvaluations(scope?: AgentScope) {
     where: { supersededAt: null, ...(scope ? evaluationScopeWhere(scope) : {}) },
     orderBy: [{ callDate: "desc" }, { creationDate: "desc" }],
     include: {
-      agent: { select: { agentName: true } },
+      agent: { select: { agentName: true, tlName: true } },
       correctedBy: { select: { name: true } },
       config: { select: { version: true } },
     },

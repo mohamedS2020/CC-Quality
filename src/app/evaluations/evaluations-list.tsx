@@ -2,20 +2,32 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { displayMobile, phoneSearchDigits } from "@/lib/pii";
+import {
+  agentOptions,
+  filterRows,
+  filtersFromParams,
+  filtersToParams,
+  teamLeadOptions,
+  type ResultFilter,
+} from "@/lib/evaluations/list-filter";
 import { Pager, PAGE_SIZE } from "../_components/pager";
 
 /**
- * Evaluations list with an instant phone-number filter for admins/moderators
- * (`canSearch`). The phone is stored masked (last 4 digits), so the filter
- * matches by suffix and never puts a number in the URL (FR-19) — it runs
- * client-side over the already-loaded, already-masked rows.
+ * Evaluations list with instant filters over the already-loaded, already-scoped
+ * rows: Result (Pass/Fail) for everyone, plus agent, team leader and phone
+ * number for admins/moderators (`canSearch`). Agent / team leader / result live
+ * in the URL, so Back from a call keeps them; the phone never does (FR-19) — it
+ * is stored masked (last 4 digits) and matched by suffix.
  */
 
 export interface EvalRow {
   evalId: string;
   callDate: string;
+  agentLoginId: number;
   agentName: string;
+  tlName: string;
   qaOwner: string;
   status: string;
   failed: boolean;
@@ -25,73 +37,145 @@ export interface EvalRow {
 }
 
 export function EvaluationsList({ rows, canSearch }: { rows: EvalRow[]; canSearch: boolean }) {
+  const searchParams = useSearchParams();
+  const [filters, setFilters] = useState(() => {
+    const f = filtersFromParams(new URLSearchParams(searchParams?.toString() ?? ""));
+    // Agents can't pick an agent or team (their rows are already only theirs).
+    return canSearch ? f : { ...f, agent: "", tl: "" };
+  });
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
   const last4 = canSearch ? phoneSearchDigits(query) : "";
   const filtered = useMemo(
-    () => (last4 ? rows.filter((r) => (r.phoneMasked ?? "").endsWith(last4)) : rows),
-    [rows, last4],
+    () => filterRows(rows, { ...filters, phoneLast4: last4 }),
+    [rows, filters, last4],
   );
+  const tls = useMemo(() => teamLeadOptions(rows), [rows]);
+  const agents = useMemo(() => agentOptions(rows, filters.tl), [rows, filters.tl]);
+  const active = !!(filters.agent || filters.tl || filters.result || last4);
+
+  function update(patch: Partial<typeof filters>) {
+    const next = { ...filters, ...patch };
+    // Picking a team drops an agent who isn't on it.
+    if (
+      patch.tl !== undefined &&
+      next.agent &&
+      !agentOptions(rows, next.tl).some((a) => String(a.loginId) === next.agent)
+    ) {
+      next.agent = "";
+    }
+    setFilters(next);
+    setPage(0);
+    // Shallow URL update (no server round trip) so Back from a call keeps the filters.
+    const qs = filtersToParams(next).toString();
+    window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
+  }
+
+  function clearAll() {
+    setQuery("");
+    update({ agent: "", tl: "", result: "" });
+  }
   const pageCount = Math.ceil(filtered.length / PAGE_SIZE);
   const clampedPage = Math.min(page, Math.max(0, pageCount - 1));
   const pageRows = filtered.slice(clampedPage * PAGE_SIZE, clampedPage * PAGE_SIZE + PAGE_SIZE);
 
   return (
     <>
-      {canSearch && (
-        <div
-          className="card"
-          style={{
-            marginTop: "1.5rem",
-            padding: "0.6rem 0.75rem",
-            display: "flex",
-            gap: "0.6rem",
-            alignItems: "center",
-            flexWrap: "wrap",
-          }}
-        >
-          <label htmlFor="phone-search" style={{ fontSize: "0.9rem", fontWeight: 500 }}>
-            Search by phone number
-          </label>
-          <input
-            id="phone-search"
-            className="input"
-            inputMode="numeric"
-            placeholder="Full number or last 4 digits"
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setPage(0);
-            }}
-            style={{ maxWidth: 260 }}
-          />
-          {query && (
-            <button
-              type="button"
-              className="btn btn-sm btn-ghost"
-              onClick={() => {
-                setQuery("");
-                setPage(0);
-              }}
-            >
-              Clear
-            </button>
-          )}
-          <span className="muted" style={{ fontSize: "0.8rem" }}>
-            {last4
-              ? `${filtered.length} match${filtered.length === 1 ? "" : "es"}`
-              : `${rows.length} calls`}
-          </span>
-        </div>
-      )}
-
       <div
         className="card"
-        style={{ marginTop: canSearch ? "0.75rem" : "1.5rem", padding: "0.5rem 0.75rem" }}
+        style={{
+          marginTop: "1.5rem",
+          padding: "0.6rem 0.75rem",
+          display: "flex",
+          gap: "0.75rem",
+          alignItems: "flex-end",
+          flexWrap: "wrap",
+        }}
       >
+        {canSearch && (
+          <>
+            <label className="field" style={{ minWidth: 200 }}>
+              <span>Team leader</span>
+              <select
+                className="select"
+                aria-label="filter-tl"
+                value={filters.tl}
+                onChange={(e) => update({ tl: e.target.value })}
+              >
+                <option value="">All team leaders</option>
+                {tls.map((tl) => (
+                  <option key={tl} value={tl}>
+                    {tl}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field" style={{ minWidth: 220 }}>
+              <span>Agent</span>
+              <select
+                className="select"
+                aria-label="filter-agent"
+                value={filters.agent}
+                onChange={(e) => update({ agent: e.target.value })}
+              >
+                <option value="">All agents</option>
+                {agents.map((a) => (
+                  <option key={a.loginId} value={String(a.loginId)}>
+                    {a.agentName} ({a.loginId})
+                  </option>
+                ))}
+              </select>
+            </label>
+          </>
+        )}
+        <label className="field" style={{ minWidth: 130 }}>
+          <span>Result</span>
+          <select
+            className="select"
+            aria-label="filter-result"
+            value={filters.result}
+            onChange={(e) => update({ result: e.target.value as ResultFilter })}
+          >
+            <option value="">All</option>
+            <option value="pass">Pass</option>
+            <option value="fail">Fail</option>
+          </select>
+        </label>
+        {canSearch && (
+          <label className="field" style={{ minWidth: 220 }}>
+            <span>Phone number</span>
+            <input
+              id="phone-search"
+              className="input"
+              aria-label="phone-search"
+              inputMode="numeric"
+              placeholder="Full number or last 4 digits"
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setPage(0);
+              }}
+            />
+          </label>
+        )}
+        {active && (
+          <button type="button" className="btn btn-sm btn-ghost" onClick={clearAll}>
+            Clear filters
+          </button>
+        )}
+        <span
+          className="muted"
+          data-testid="eval-count"
+          style={{ fontSize: "0.8rem", marginLeft: "auto", alignSelf: "center" }}
+        >
+          {active ? `${filtered.length} of ${rows.length} calls` : `${rows.length} calls`}
+        </span>
+      </div>
+
+      <div className="card" style={{ marginTop: "0.75rem", padding: "0.5rem 0.75rem" }}>
         {filtered.length === 0 ? (
           <p className="empty" style={{ border: "none" }}>
-            {last4 ? "No calls match that phone number." : "No evaluations yet."}
+            {active ? "No calls match these filters." : "No evaluations yet."}
           </p>
         ) : (
           <table className="table">
