@@ -72,7 +72,9 @@ export function AgentsList({ rows }: { rows: AgentRow[] }) {
                   )}
                 </td>
                 <td style={{ textAlign: "right" }}>
-                  <Link href={`/admin/agents/${a.loginId}`}>Edit →</Link>
+                  <Link prefetch={false} href={`/admin/agents/${a.loginId}`}>
+                    Edit →
+                  </Link>
                 </td>
               </tr>
             ))}

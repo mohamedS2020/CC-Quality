@@ -61,16 +61,14 @@ export async function validateSessionToken(token: string): Promise<SessionValida
     return { session: null, user: null };
   }
 
+  const { user, ...session } = found;
   const halfway = found.expiresAt.getTime() - SESSION_IDLE_MS / 2;
-  const record =
-    now.getTime() >= halfway
-      ? await prisma.session.update({
-          where: { id },
-          data: { expiresAt: new Date(now.getTime() + SESSION_IDLE_MS), lastActivityAt: now },
-          include: { user: true },
-        })
-      : found;
+  if (now.getTime() < halfway) return { session, user };
 
-  const { user, ...session } = record;
-  return { session, user };
+  // updateMany, not update: a parallel request (or a logout) may have deleted
+  // the row since it was read, and `update` would throw instead of signing out.
+  const extended = { expiresAt: new Date(now.getTime() + SESSION_IDLE_MS), lastActivityAt: now };
+  const { count } = await prisma.session.updateMany({ where: { id }, data: extended });
+  if (count === 0) return { session: null, user: null };
+  return { session: { ...session, ...extended }, user };
 }

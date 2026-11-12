@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { authorize } from "@/lib/auth";
 import { AuthError } from "@/lib/auth/errors";
+import { loginUrl } from "@/lib/auth/next-path";
 import { loadActiveConfig } from "@/lib/config/loader";
 import { prisma } from "@/lib/db/client";
 import { reportPeriods } from "@/lib/reports/filters";
@@ -20,9 +21,19 @@ export async function GET(req: NextRequest) {
     ctx = await authorize("reports.export");
   } catch (error) {
     if (error instanceof AuthError) {
-      return new Response(error.status === 401 ? "Not signed in." : "Forbidden.", {
-        status: error.status,
-      });
+      // Signed out (e.g. the session expired on an open report): sign in again
+      // and come back to the report — not to the file, which would download
+      // onto a blank page.
+      if (error.status === 401) {
+        const back = new URL(req.url).searchParams;
+        back.delete("format");
+        // Relative Location: req.url can carry the internal host behind a proxy.
+        return new Response(null, {
+          status: 303,
+          headers: { Location: loginUrl(`/reports?${back}`) },
+        });
+      }
+      return new Response("Forbidden.", { status: error.status });
     }
     throw error;
   }

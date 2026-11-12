@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { getAuthContext } from "@/lib/auth";
+import { getAuthContext, redirectToLogin } from "@/lib/auth";
 import { loadActiveConfig } from "@/lib/config/loader";
 import { agentRepository } from "@/lib/db/repositories";
 import {
@@ -29,7 +28,7 @@ export default async function DashboardPage({
 }) {
   const { period: periodParam } = await searchParams;
   const ctx = await getAuthContext();
-  if (!ctx) redirect("/login");
+  if (!ctx) return redirectToLogin();
 
   // Strict self-scope (FR-38): only ever the caller's own agent data.
   const loginId = ctx.user.agentLoginId;
@@ -105,6 +104,7 @@ export default async function DashboardPage({
           const active = p.id === selected.id;
           return (
             <Link
+              prefetch={false}
               key={p.id}
               href={`/dashboard?period=${p.label}`}
               className={active ? "badge badge-accent" : "badge"}
@@ -264,7 +264,9 @@ export default async function DashboardPage({
                       </span>
                     </td>
                     <td style={{ textAlign: "right" }}>
-                      <Link href={`/evaluations/${c.evalId}`}>View →</Link>
+                      <Link prefetch={false} href={`/evaluations/${c.evalId}`}>
+                        View →
+                      </Link>
                     </td>
                   </tr>
                 ))}

@@ -1,13 +1,12 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { getAuthContext } from "@/lib/auth";
+import { getAuthContext, redirectToLogin } from "@/lib/auth";
 import { AgentForm } from "../agent-form";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewAgentPage() {
   const ctx = await getAuthContext();
-  if (!ctx) redirect("/login");
+  if (!ctx) return redirectToLogin();
 
   if (!ctx.permissions.has("agents.manage")) {
     return (
@@ -20,7 +19,7 @@ export default async function NewAgentPage() {
 
   return (
     <main className="page page-narrow">
-      <Link href="/admin/agents" style={{ fontSize: "0.9rem" }}>
+      <Link prefetch={false} href="/admin/agents" style={{ fontSize: "0.9rem" }}>
         ← All agents
       </Link>
       <h1 className="page-title" style={{ margin: "0.75rem 0 1.25rem" }}>

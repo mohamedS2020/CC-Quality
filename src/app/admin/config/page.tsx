@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-import { getAuthContext } from "@/lib/auth";
+import { getAuthContext, redirectToLogin } from "@/lib/auth";
 import type { ConfigInput } from "@/lib/config/input";
 import { loadActiveConfig } from "@/lib/config/loader";
 import { buildInputFromLoaded } from "@/lib/config/versioning";
@@ -25,7 +24,7 @@ const EMPTY_DRAFT: ConfigInput = {
 
 export default async function ConfigPage() {
   const ctx = await getAuthContext();
-  if (!ctx) redirect("/login");
+  if (!ctx) return redirectToLogin();
 
   const canEdit = ctx.permissions.has("config.edit");
   if (!canEdit && !ctx.permissions.has("config.view")) {

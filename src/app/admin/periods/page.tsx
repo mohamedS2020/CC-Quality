@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-import { getAuthContext } from "@/lib/auth";
+import { getAuthContext, redirectToLogin } from "@/lib/auth";
 import { listPeriods } from "@/lib/periods/period";
 import { PeriodsManager, type PeriodRow } from "./periods-manager";
 
@@ -8,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export default async function PeriodsPage() {
   const ctx = await getAuthContext();
-  if (!ctx) redirect("/login");
+  if (!ctx) return redirectToLogin();
 
   if (!ctx.permissions.has("periods.lock")) {
     return (

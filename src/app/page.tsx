@@ -82,7 +82,7 @@ export default async function HomePage() {
           <p className="muted" style={{ marginBottom: "1.75rem" }}>
             Call Center Quality Scoring System — QA Scorecard.
           </p>
-          <Link href="/login" className="btn btn-primary">
+          <Link prefetch={false} href="/login" className="btn btn-primary">
             Sign in
           </Link>
         </div>
@@ -110,7 +110,12 @@ export default async function HomePage() {
         }}
       >
         {actions.map((a) => (
-          <Link key={a.href} href={a.href} className="card card-interactive qa-card">
+          <Link
+            prefetch={false}
+            key={a.href}
+            href={a.href}
+            className="card card-interactive qa-card"
+          >
             <span className="qa-arrow" aria-hidden="true">
               →
             </span>

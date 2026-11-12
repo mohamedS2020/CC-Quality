@@ -56,7 +56,10 @@ export function AgentComparison({
             <tr key={r.loginId}>
               <td style={{ whiteSpace: "nowrap" }}>
                 {baseQuery ? (
-                  <Link href={`/reports/detail?${baseQuery}&focus=agent&loginId=${r.loginId}`}>
+                  <Link
+                    prefetch={false}
+                    href={`/reports/detail?${baseQuery}&focus=agent&loginId=${r.loginId}`}
+                  >
                     {r.agentName}
                   </Link>
                 ) : (

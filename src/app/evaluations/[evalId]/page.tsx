@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
-import { getAuthContext } from "@/lib/auth";
+import { notFound } from "next/navigation";
+import { getAuthContext, redirectToLogin } from "@/lib/auth";
 import { agentScopeFor } from "@/lib/auth/scope";
 import { getEvaluationHistory, type EvaluationVersion } from "@/lib/evaluations/query";
 import { displayMobile } from "@/lib/pii";
@@ -76,7 +76,7 @@ export default async function EvaluationDetailPage({
 }) {
   const { evalId } = await params;
   const ctx = await getAuthContext();
-  if (!ctx) redirect("/login");
+  if (!ctx) return redirectToLogin();
 
   if (!ctx.permissions.has("evaluations.view")) {
     return (
@@ -98,7 +98,7 @@ export default async function EvaluationDetailPage({
 
   return (
     <main className="page page-narrow">
-      <Link href="/evaluations" style={{ fontSize: "0.9rem" }}>
+      <Link prefetch={false} href="/evaluations" style={{ fontSize: "0.9rem" }}>
         ← All evaluations
       </Link>
 
@@ -124,6 +124,7 @@ export default async function EvaluationDetailPage({
 
       {ctx.permissions.has("evaluations.edit") && (
         <Link
+          prefetch={false}
           href={`/evaluations/${current.evalId}/correct`}
           className="btn btn-ghost"
           style={{ marginTop: "0.85rem" }}

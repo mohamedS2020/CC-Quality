@@ -68,6 +68,42 @@ describe("session lifecycle (3.1)", () => {
     expect(await prisma.session.findUnique({ where: { id: hashToken(token) } })).toBeNull();
   });
 
+  it("extends a session in the second half of its idle window", async () => {
+    const user = await makeUser();
+    const { token } = await createSession(user.id);
+    const soon = new Date(Date.now() + 60_000); // well past halfway
+    await prisma.session.update({ where: { id: hashToken(token) }, data: { expiresAt: soon } });
+
+    const result = await validateSessionToken(token);
+    expect(result.user?.id).toBe(user.id);
+    expect(result.session!.expiresAt.getTime()).toBeGreaterThan(soon.getTime());
+    const row = await prisma.session.findUniqueOrThrow({ where: { id: hashToken(token) } });
+    expect(row.expiresAt.getTime()).toBe(result.session!.expiresAt.getTime());
+  });
+
+  it("signs out instead of throwing when the row vanishes mid-request", async () => {
+    const user = await makeUser();
+    const { token } = await createSession(user.id);
+    const id = hashToken(token);
+    await prisma.session.update({
+      where: { id },
+      data: { expiresAt: new Date(Date.now() + 60_000) },
+    });
+
+    // A parallel request (or a logout) deletes the row after this one read it.
+    const read = prisma.session.findUnique.bind(prisma.session);
+    const spy = jest.spyOn(prisma.session, "findUnique").mockImplementationOnce(((
+      args: Parameters<typeof read>[0],
+    ) =>
+      read(args).then(async (found) => {
+        await prisma.session.delete({ where: { id } });
+        return found;
+      })) as unknown as typeof prisma.session.findUnique);
+
+    await expect(validateSessionToken(token)).resolves.toEqual({ session: null, user: null });
+    spy.mockRestore();
+  });
+
   it("rejects a valid session belonging to a deactivated account", async () => {
     const user = await makeUser();
     const { token } = await createSession(user.id);

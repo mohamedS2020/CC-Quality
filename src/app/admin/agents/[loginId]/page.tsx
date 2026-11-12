@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
-import { getAuthContext } from "@/lib/auth";
+import { notFound } from "next/navigation";
+import { getAuthContext, redirectToLogin } from "@/lib/auth";
 import { deriveAgentStanding } from "@/lib/agents/status";
 import { loadActiveConfig } from "@/lib/config/loader";
 import { agentRepository } from "@/lib/db/repositories";
@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function EditAgentPage({ params }: { params: Promise<{ loginId: string }> }) {
   const { loginId } = await params;
   const ctx = await getAuthContext();
-  if (!ctx) redirect("/login");
+  if (!ctx) return redirectToLogin();
 
   if (!ctx.permissions.has("agents.manage")) {
     return (
@@ -31,7 +31,7 @@ export default async function EditAgentPage({ params }: { params: Promise<{ logi
 
   return (
     <main className="page page-narrow">
-      <Link href="/admin/agents" style={{ fontSize: "0.9rem" }}>
+      <Link prefetch={false} href="/admin/agents" style={{ fontSize: "0.9rem" }}>
         ← All agents
       </Link>
       <h1 className="page-title" style={{ margin: "0.75rem 0 0.25rem" }}>

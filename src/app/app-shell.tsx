@@ -253,8 +253,9 @@ export function AppShell({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // Unauthenticated (e.g. /login): render the page with no chrome.
-  if (!user) return <>{children}</>;
+  // Signed out, or on /login (where a client-side redirect after the session
+  // expired can still carry the old signed-in layout): render with no chrome.
+  if (!user || pathname === "/login") return <>{children}</>;
 
   const granted = new Set(permissions);
   const groups = NAV.map((g) => ({
@@ -297,6 +298,7 @@ export function AppShell({
                 const active = item.href === activeHref;
                 return (
                   <Link
+                    prefetch={false}
                     key={item.href}
                     href={item.href}
                     className={`${styles.item} ${active ? styles.itemActive : ""}`}

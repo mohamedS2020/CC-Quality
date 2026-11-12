@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { getAuthContext } from "@/lib/auth";
+import { getAuthContext, redirectToLogin } from "@/lib/auth";
 import { deriveAgentStanding } from "@/lib/agents/status";
 import { loadActiveConfig } from "@/lib/config/loader";
 import { agentRepository } from "@/lib/db/repositories";
@@ -14,7 +13,7 @@ function ymd(d: Date): string {
 
 export default async function AgentsPage() {
   const ctx = await getAuthContext();
-  if (!ctx) redirect("/login");
+  if (!ctx) return redirectToLogin();
 
   if (!ctx.permissions.has("agents.manage")) {
     return (
@@ -60,7 +59,7 @@ export default async function AgentsPage() {
               : "."}
           </p>
         </div>
-        <Link href="/admin/agents/new" className="btn btn-primary">
+        <Link prefetch={false} href="/admin/agents/new" className="btn btn-primary">
           + New agent
         </Link>
       </div>

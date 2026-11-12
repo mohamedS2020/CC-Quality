@@ -5,11 +5,12 @@ import { loginAction, type LoginFormState } from "./actions";
 
 const initialState: LoginFormState = { error: null };
 
-export function LoginForm() {
+export function LoginForm({ next = "/" }: { next?: string }) {
   const [state, formAction, pending] = useActionState(loginAction, initialState);
 
   return (
     <form action={formAction} noValidate style={{ display: "grid", gap: "0.9rem" }}>
+      <input type="hidden" name="next" value={next} />
       <label className="field">
         <span>Email</span>
         <input

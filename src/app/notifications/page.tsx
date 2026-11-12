@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-import { getAuthContext } from "@/lib/auth";
+import { getAuthContext, redirectToLogin } from "@/lib/auth";
 import { listNotifications } from "@/lib/notifications/service";
 import { markAllReadAction, openNotificationAction } from "./actions";
 
@@ -11,7 +10,7 @@ function fmt(d: Date): string {
 
 export default async function NotificationsPage() {
   const ctx = await getAuthContext();
-  if (!ctx) redirect("/login");
+  if (!ctx) return redirectToLogin();
 
   const notifications = await listNotifications(ctx.user.id);
   const hasUnread = notifications.some((n) => n.readAt === null);
