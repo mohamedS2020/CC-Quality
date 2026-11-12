@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { getAuthContext } from "@/lib/auth";
+import { getAuthContext, redirectToLogin } from "@/lib/auth";
 import { loadActiveConfig } from "@/lib/config/loader";
 import { isLensProvisional } from "@/lib/engine/lenses";
 import { reportAgents, reportPeriods, teamLeads } from "@/lib/reports/filters";
@@ -59,7 +58,7 @@ export default async function ReportsPage({
 }) {
   const params = await searchParams;
   const ctx = await getAuthContext();
-  if (!ctx) redirect("/login");
+  if (!ctx) return redirectToLogin();
 
   if (!ctx.permissions.has("reports.view")) {
     return (
@@ -176,25 +175,18 @@ export default async function ReportsPage({
           </p>
         </div>
         {canExport && report && (
+          // Plain links, not <Link>: Next prefetches a <Link> in the background,
+          // which would build the export file on every page view.
           <div className="no-print" style={{ display: "flex", gap: "0.5rem" }}>
-            <Link
-              href={`/reports/export?format=csv&${exportQuery}`}
-              className="btn btn-ghost btn-sm"
-            >
+            <a href={`/reports/export?format=csv&${exportQuery}`} className="btn btn-ghost btn-sm">
               CSV
-            </Link>
-            <Link
-              href={`/reports/export?format=xlsx&${exportQuery}`}
-              className="btn btn-ghost btn-sm"
-            >
+            </a>
+            <a href={`/reports/export?format=xlsx&${exportQuery}`} className="btn btn-ghost btn-sm">
               Excel
-            </Link>
-            <Link
-              href={`/reports/export?format=pdf&${exportQuery}`}
-              className="btn btn-ghost btn-sm"
-            >
+            </a>
+            <a href={`/reports/export?format=pdf&${exportQuery}`} className="btn btn-ghost btn-sm">
               PDF
-            </Link>
+            </a>
           </div>
         )}
       </div>
@@ -257,7 +249,7 @@ export default async function ReportsPage({
               baseQuery={detailBase}
             />
             <p style={{ margin: "0.5rem 0 0", fontSize: "0.85rem" }}>
-              <Link href={`/reports/detail?${detailBase}&focus=overview`}>
+              <Link prefetch={false} href={`/reports/detail?${detailBase}&focus=overview`}>
                 View all underlying call data →
               </Link>
             </p>
@@ -303,6 +295,7 @@ export default async function ReportsPage({
                 >
                   <strong>Leaderboard</strong>
                   <Link
+                    prefetch={false}
                     href={`/reports/detail?${detailBase}&focus=leaderboard`}
                     style={{ fontSize: "0.85rem" }}
                   >

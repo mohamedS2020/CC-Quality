@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { getAuthContext } from "@/lib/auth";
+import { getAuthContext, redirectToLogin } from "@/lib/auth";
 import { agentScopeFor } from "@/lib/auth/scope";
 import { listCurrentEvaluations } from "@/lib/evaluations/query";
 import { EvaluationsList, type EvalRow } from "./evaluations-list";
@@ -9,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function EvaluationsPage() {
   const ctx = await getAuthContext();
-  if (!ctx) redirect("/login");
+  if (!ctx) return redirectToLogin();
 
   if (!ctx.permissions.has("evaluations.view")) {
     return (
@@ -53,7 +52,7 @@ export default async function EvaluationsPage() {
           <p className="page-sub">The current version of every scored call.</p>
         </div>
         {ctx.permissions.has("evaluations.create") && (
-          <Link href="/evaluations/new" className="btn btn-primary">
+          <Link prefetch={false} href="/evaluations/new" className="btn btn-primary">
             + New score sheet
           </Link>
         )}

@@ -55,6 +55,15 @@ describe("AppShell", () => {
     expect(screen.queryByRole("link", { name: "Evaluations" })).not.toBeInTheDocument();
   });
 
+  it("renders the login page without chrome even while a stale session lingers", () => {
+    // After the session expires, a client-side redirect to /login keeps the old
+    // signed-in layout; the sidebar (and its Sign out button) must not show.
+    renderShell(admin, "/login");
+    expect(screen.getByText("PAGE BODY")).toBeInTheDocument();
+    expect(screen.queryByText("QA Scorecard")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /sign out/i })).not.toBeInTheDocument();
+  });
+
   it("shows every section to an Admin, with the user card and sign-out", () => {
     renderShell(admin);
     for (const name of [

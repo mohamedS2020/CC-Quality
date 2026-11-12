@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { getAuthContext } from "@/lib/auth";
+import { getAuthContext, redirectToLogin } from "@/lib/auth";
 import { userRepository } from "@/lib/db/repositories";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +12,7 @@ const ROLE_LABEL: Record<string, string> = {
 
 export default async function UsersPage() {
   const ctx = await getAuthContext();
-  if (!ctx) redirect("/login");
+  if (!ctx) return redirectToLogin();
 
   if (!ctx.permissions.has("users.manage")) {
     return (
@@ -42,7 +41,7 @@ export default async function UsersPage() {
             Admins, Moderators, and Agents. Moderator privileges are granted per-user.
           </p>
         </div>
-        <Link href="/admin/users/new" className="btn btn-primary">
+        <Link prefetch={false} href="/admin/users/new" className="btn btn-primary">
           + New user
         </Link>
       </div>
@@ -74,7 +73,9 @@ export default async function UsersPage() {
                   )}
                 </td>
                 <td style={{ textAlign: "right" }}>
-                  <Link href={`/admin/users/${u.id}`}>Edit →</Link>
+                  <Link prefetch={false} href={`/admin/users/${u.id}`}>
+                    Edit →
+                  </Link>
                 </td>
               </tr>
             ))}

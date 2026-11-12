@@ -115,7 +115,7 @@ export function Leaderboard({ rows, baseQuery }: { rows: LeaderboardRow[]; baseQ
           ? `/reports/detail?${baseQuery}&focus=agent&loginId=${r.loginId}`
           : undefined;
         return href ? (
-          <Link key={r.loginId} href={href} style={rowStyle}>
+          <Link prefetch={false} key={r.loginId} href={href} style={rowStyle}>
             {inner}
           </Link>
         ) : (

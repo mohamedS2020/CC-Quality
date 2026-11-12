@@ -1,13 +1,19 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
+import { safeNextPath } from "@/lib/auth/next-path";
 import { LoginForm } from "./login-form";
 
 // Reads cookies to check the session, so this route is always dynamic.
 export const dynamic = "force-dynamic";
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
+  const next = safeNextPath((await searchParams).next);
   const user = await getCurrentUser();
-  if (user) redirect("/");
+  if (user) redirect(next);
 
   return (
     <main className="auth-wrap">
@@ -27,7 +33,7 @@ export default async function LoginPage() {
           Sign in to continue to your workspace.
         </p>
 
-        <LoginForm />
+        <LoginForm next={next} />
       </div>
     </main>
   );

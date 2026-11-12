@@ -1,12 +1,11 @@
-import { redirect } from "next/navigation";
-import { getAuthContext } from "@/lib/auth";
+import { getAuthContext, redirectToLogin } from "@/lib/auth";
 import { ImportForm } from "./import-form";
 
 export const dynamic = "force-dynamic";
 
 export default async function ImportPage() {
   const ctx = await getAuthContext();
-  if (!ctx) redirect("/login");
+  if (!ctx) return redirectToLogin();
 
   if (!ctx.permissions.has("imports.run")) {
     return (

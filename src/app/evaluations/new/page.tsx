@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-import { getAuthContext } from "@/lib/auth";
+import { getAuthContext, redirectToLogin } from "@/lib/auth";
 import { agentRepository } from "@/lib/db/repositories";
 import { loadActiveConfig } from "@/lib/config/loader";
 import { rubricFromConfig } from "@/lib/evaluations/rubric";
@@ -10,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export default async function NewEvaluationPage() {
   const ctx = await getAuthContext();
-  if (!ctx) redirect("/login");
+  if (!ctx) return redirectToLogin();
 
   if (!ctx.permissions.has("evaluations.create")) {
     return (

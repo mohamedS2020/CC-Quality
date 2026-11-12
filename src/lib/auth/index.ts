@@ -90,6 +90,7 @@ export async function authorize(permission?: PermissionKey): Promise<AuthContext
 
 export { hashPassword, verifyPassword } from "./password";
 export { invalidateUserSessions } from "./session";
+export { redirectToLogin } from "./login-redirect";
 export { validatePassword, MIN_PASSWORD_LENGTH } from "./policy";
 export { resetPassword, type PasswordUpdateResult } from "./account";
 export { AuthError } from "./errors";

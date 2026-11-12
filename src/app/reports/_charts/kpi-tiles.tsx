@@ -53,6 +53,7 @@ function pct(v: number | undefined, decimals: number): string {
 function Tile({ href, children }: { href?: string; children: React.ReactNode }) {
   return href ? (
     <Link
+      prefetch={false}
       className="stat"
       href={href}
       style={{ display: "block", textDecoration: "none", color: "inherit" }}

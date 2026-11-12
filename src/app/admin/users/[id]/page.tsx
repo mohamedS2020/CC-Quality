@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
-import { getAuthContext } from "@/lib/auth";
+import { notFound } from "next/navigation";
+import { getAuthContext, redirectToLogin } from "@/lib/auth";
 import { agentRepository, userRepository } from "@/lib/db/repositories";
 import { UserForm } from "../user-form";
 import { PermissionEditor } from "../permission-editor";
@@ -17,7 +17,7 @@ const hr: React.CSSProperties = {
 export default async function EditUserPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const ctx = await getAuthContext();
-  if (!ctx) redirect("/login");
+  if (!ctx) return redirectToLogin();
 
   if (!ctx.permissions.has("users.manage")) {
     return (
@@ -39,7 +39,7 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
 
   return (
     <main className="page page-narrow">
-      <Link href="/admin/users" style={{ fontSize: "0.9rem" }}>
+      <Link prefetch={false} href="/admin/users" style={{ fontSize: "0.9rem" }}>
         ← All users
       </Link>
       <h1 className="page-title" style={{ margin: "0.75rem 0 0.25rem" }}>

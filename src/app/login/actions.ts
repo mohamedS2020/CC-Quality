@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { login, logout } from "@/lib/auth";
+import { safeNextPath } from "@/lib/auth/next-path";
 
 export type LoginFormState = { error: string | null };
 
@@ -20,8 +21,9 @@ export async function loginAction(
   const result = await login(email, password);
   if (!result.ok) return { error: result.error };
 
-  // On success `login` has set the session cookie; send the user home.
-  redirect("/");
+  // On success `login` has set the session cookie; send the user back to the
+  // page they were on (validated, so `next` can't point off-site), else home.
+  redirect(safeNextPath(String(formData.get("next") ?? "")));
 }
 
 export async function logoutAction(): Promise<void> {

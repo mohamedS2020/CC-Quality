@@ -131,7 +131,9 @@ export function EvaluationsList({ rows, canSearch }: { rows: EvalRow[]; canSearc
                     )}
                   </td>
                   <td style={{ textAlign: "right" }}>
-                    <Link href={`/evaluations/${e.evalId}`}>View →</Link>
+                    <Link prefetch={false} href={`/evaluations/${e.evalId}`}>
+                      View →
+                    </Link>
                   </td>
                 </tr>
               ))}

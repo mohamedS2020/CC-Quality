@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { getAuthContext } from "@/lib/auth";
+import { getAuthContext, redirectToLogin } from "@/lib/auth";
 import { loadActiveConfig } from "@/lib/config/loader";
 import { reportPeriods } from "@/lib/reports/filters";
 import { loadReport, pickLens } from "@/lib/reports/metrics";
@@ -48,7 +47,7 @@ export default async function ReportDetailPage({
 }) {
   const params = await searchParams;
   const ctx = await getAuthContext();
-  if (!ctx) redirect("/login");
+  if (!ctx) return redirectToLogin();
   if (!ctx.permissions.has("reports.view")) {
     return shell(<p className="empty">You need the “View reports” permission.</p>);
   }
@@ -117,6 +116,7 @@ export default async function ReportDetailPage({
   return (
     <main className="page">
       <Link
+        prefetch={false}
         href={`/reports?${back}`}
         className="btn btn-ghost btn-sm no-print"
         style={{ marginBottom: "0.5rem" }}

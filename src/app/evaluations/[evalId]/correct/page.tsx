@@ -1,5 +1,5 @@
 import { notFound, redirect } from "next/navigation";
-import { getAuthContext } from "@/lib/auth";
+import { getAuthContext, redirectToLogin } from "@/lib/auth";
 import { loadConfigById } from "@/lib/config/loader";
 import { prisma } from "@/lib/db/client";
 import { agentRepository } from "@/lib/db/repositories";
@@ -25,7 +25,7 @@ export default async function CorrectEvaluationPage({
 }) {
   const { evalId } = await params;
   const ctx = await getAuthContext();
-  if (!ctx) redirect("/login");
+  if (!ctx) return redirectToLogin();
 
   if (!ctx.permissions.has("evaluations.edit")) {
     return (
