@@ -8,6 +8,7 @@ export interface AgentRow {
   loginId: number;
   agentName: string;
   tlName: string;
+  email: string | null;
   joinDate: string;
   status: string | null;
   tenureDays: number | null;
@@ -34,6 +35,7 @@ export function AgentsList({ rows }: { rows: AgentRow[] }) {
               <th>Login ID</th>
               <th>Agent</th>
               <th>Team leader</th>
+              <th>Email</th>
               <th>Join date</th>
               <th>Tenure</th>
               <th>Trial</th>
@@ -47,6 +49,7 @@ export function AgentsList({ rows }: { rows: AgentRow[] }) {
                 <td style={{ fontVariantNumeric: "tabular-nums" }}>{a.loginId}</td>
                 <td>{a.agentName}</td>
                 <td className="muted">{a.tlName}</td>
+                <td className="muted">{a.email ?? "—"}</td>
                 <td style={{ fontVariantNumeric: "tabular-nums" }}>{a.joinDate}</td>
                 <td>
                   {a.status ? (

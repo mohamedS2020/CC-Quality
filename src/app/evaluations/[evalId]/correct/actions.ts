@@ -2,7 +2,9 @@
 
 import { authorize } from "@/lib/auth";
 import { AuthError } from "@/lib/auth/errors";
+import { prisma } from "@/lib/db/client";
 import { correctEvaluation } from "@/lib/evaluations/correct";
+import { emailCorrectionPosted } from "@/lib/notifications/service";
 import type { EvaluationDraft } from "../../new/types";
 
 export type CorrectionResult = { ok: true; evalId: string } | { ok: false; message: string };
@@ -64,5 +66,18 @@ export async function correctEvaluationAction(
     userId,
   );
 
-  return result.ok ? { ok: true, evalId: result.evalId } : { ok: false, message: result.error };
+  if (!result.ok) return { ok: false, message: result.error };
+
+  // Email the agent the new result (best-effort; corrections always notify).
+  const saved = await prisma.evaluation.findUnique({
+    where: { evalId: result.evalId },
+    select: { overallStatus: true },
+  });
+  await emailCorrectionPosted(
+    draft.agentLoginId,
+    new Date(draft.callDate),
+    saved?.overallStatus ?? null,
+  );
+
+  return { ok: true, evalId: result.evalId };
 }

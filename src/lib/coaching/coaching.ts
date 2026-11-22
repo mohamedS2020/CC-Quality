@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/db/client";
 import { sendMail } from "@/lib/email/mailer";
 import { displayMobile } from "@/lib/pii";
+import { agentMailTarget } from "@/lib/notifications/service";
 import { getCoachingCc } from "@/lib/settings/settings";
 
 /**
@@ -35,7 +36,8 @@ export interface CoachingEmailData {
   overallStatus: string;
   failedSections: CoachingSection[];
   coachingText: string;
-  appUrl: string;
+  /** null = the agent has no login, so no link to a site they can't open. */
+  appUrl: string | null;
 }
 
 /** Pure builder — no DB/transport, so it's unit-testable. */
@@ -63,7 +65,7 @@ export function buildCoachingEmail(d: CoachingEmailData): {
     `- Date: ${date}\n- Phone: ${phone}\n- Call type: ${callType}\n- Result: ${d.overallStatus}\n- Scored by: ${d.scorer}\n\n` +
     `Areas to improve\n${areasText}\n\n` +
     `Coaching notes\n${d.coachingText}\n\n` +
-    `You can review the full scorecard on the site: ${d.appUrl}\n\n` +
+    (d.appUrl ? `You can review the full scorecard on the site: ${d.appUrl}\n\n` : "") +
     `Sent by ${d.senderName} — CC-Quality`;
 
   const row = (k: string, v: string) =>
@@ -92,7 +94,9 @@ export function buildCoachingEmail(d: CoachingEmailData): {
     `<h3 style="font-size:14px;margin:18px 0 4px">Areas to improve</h3>${areasHtml}` +
     `<h3 style="font-size:14px;margin:18px 0 4px">Coaching notes</h3>` +
     `<div style="background:#f6f7f9;border-radius:8px;padding:12px 14px;white-space:pre-wrap">${esc(d.coachingText)}</div>` +
-    `<p style="margin-top:16px"><a href="${esc(d.appUrl)}">Review the full scorecard on the site →</a></p>` +
+    (d.appUrl
+      ? `<p style="margin-top:16px"><a href="${esc(d.appUrl)}">Review the full scorecard on the site →</a></p>`
+      : "") +
     `<p style="color:#888;font-size:12px;margin-top:16px">Sent by ${esc(d.senderName)} — CC-Quality</p>` +
     `</div></div>`;
 
@@ -103,7 +107,7 @@ export type CoachingOutcome = { ok: true } | { ok: false; error: string };
 
 /**
  * Send the coaching email for `evalId` and stamp it as coached. Guards: current
- * version, failed call, not already coached, agent has a linked email. The
+ * version, failed call, not already coached, the agent has an email. The
  * caller must have already authorized `coaching.send`.
  */
 export async function sendCoachingEmail(
@@ -117,7 +121,7 @@ export async function sendCoachingEmail(
   const evaluation = await prisma.evaluation.findUnique({
     where: { evalId },
     include: {
-      agent: { include: { user: { select: { email: true } } } },
+      agent: { select: { agentName: true } },
       lines: {
         include: {
           errorReason: {
@@ -135,9 +139,13 @@ export async function sendCoachingEmail(
   if (evaluation.coachingSentAt)
     return { ok: false, error: "A coaching email was already sent for this call." };
 
-  const agentEmail = evaluation.agent.user?.email;
-  if (!agentEmail)
-    return { ok: false, error: "The agent has no linked account with an email address." };
+  // Sent to the agent's own email, login or not (the link only with a login).
+  const to = await agentMailTarget(evaluation.agentLoginId);
+  if (!to)
+    return {
+      ok: false,
+      error: "This agent has no email address. Add one on the agent's page (Agents → edit).",
+    };
 
   const sender = await prisma.user.findUnique({
     where: { id: senderUserId },
@@ -175,11 +183,11 @@ export async function sendCoachingEmail(
     overallStatus: evaluation.overallStatus ?? "Fail",
     failedSections: [...bySection.values()],
     coachingText: text,
-    appUrl: process.env.APP_URL ?? "http://localhost:3000",
+    appUrl: to.appUrl,
   });
 
   try {
-    await sendMail({ to: agentEmail, cc: await getCoachingCc(), subject, text: body, html });
+    await sendMail({ to: to.email, cc: await getCoachingCc(), subject, text: body, html });
   } catch {
     return { ok: false, error: "The coaching email could not be sent. Please try again." };
   }

@@ -12,6 +12,8 @@ import { userRepository } from "@/lib/db/repositories";
 
 const AGENT_ID = 890001;
 const AGENT_ID_2 = 890002; // a second agent — User.agentLoginId is unique (one agent ↔ one user)
+const AGENT_ID_3 = 890003;
+const AGENT_ID_4 = 890004;
 const EMAIL_TAG = "@usermgmt.test";
 const strongPassword = "Sup3rSecretPw!";
 
@@ -37,12 +39,28 @@ beforeAll(async () => {
         agentName: "Link Agent",
         tlName: "TL",
         joinDate: new Date("2025-01-01"),
+        email: `agent-good${EMAIL_TAG}`,
       },
       {
         loginId: AGENT_ID_2,
         agentName: "Move Agent",
         tlName: "TL",
         joinDate: new Date("2025-01-01"),
+        email: `agent-move${EMAIL_TAG}`,
+      },
+      // No email yet: a login can't be created for this agent.
+      {
+        loginId: AGENT_ID_3,
+        agentName: "No Email",
+        tlName: "TL",
+        joinDate: new Date("2025-01-01"),
+      },
+      {
+        loginId: AGENT_ID_4,
+        agentName: "Relink",
+        tlName: "TL",
+        joinDate: new Date("2025-01-01"),
+        email: `relink${EMAIL_TAG}`,
       },
     ],
   });
@@ -135,6 +153,52 @@ describe("AGENT⇄record link rule (FR-3)", () => {
     const saved = await userRepository.findById(created.id);
     expect(saved?.agentLoginId).toBeNull();
     expect(saved?.role).toBe("MODERATOR");
+  });
+
+  it("takes an Agent's login email from the agent, ignoring what was typed", async () => {
+    const res = await createUser({
+      email: "typed-something-else@example.com",
+      name: "Inherit",
+      role: "AGENT",
+      password: strongPassword,
+      agentLoginId: AGENT_ID_4,
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect((await userRepository.findById(res.id))?.email).toBe(`relink${EMAIL_TAG}`);
+    await prisma.user.delete({ where: { id: res.id } });
+  });
+
+  it("refuses an Agent login for an agent with no email", async () => {
+    const res = await createUser({
+      email: `noemail${EMAIL_TAG}`,
+      name: "No Email",
+      role: "AGENT",
+      password: strongPassword,
+      agentLoginId: AGENT_ID_3,
+    });
+    expect(res).toEqual({ ok: false, error: expect.stringContaining("Add an email") });
+  });
+
+  it("moves a user's login onto the agent's email when linked to that agent", async () => {
+    const mod = await createUser({
+      email: `was-moderator${EMAIL_TAG}`,
+      name: "Was Mod",
+      role: "MODERATOR",
+      password: strongPassword,
+    });
+    expect(mod.ok).toBe(true);
+    if (!mod.ok) return;
+    const linked = await updateUser(mod.id, {
+      name: "Was Mod",
+      role: "AGENT",
+      active: true,
+      agentLoginId: AGENT_ID_4,
+    });
+    expect(linked.ok).toBe(true);
+    const saved = await userRepository.findById(mod.id);
+    expect(saved?.email).toBe(`relink${EMAIL_TAG}`);
+    expect(saved?.agentLoginId).toBe(AGENT_ID_4);
   });
 
   it("rejects a weak password on create", async () => {

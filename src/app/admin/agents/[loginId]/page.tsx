@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { getAuthContext, redirectToLogin } from "@/lib/auth";
 import { deriveAgentStanding } from "@/lib/agents/status";
 import { loadActiveConfig } from "@/lib/config/loader";
-import { agentRepository } from "@/lib/db/repositories";
+import { prisma } from "@/lib/db/client";
 import { AgentForm } from "../agent-form";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +23,12 @@ export default async function EditAgentPage({ params }: { params: Promise<{ logi
   }
 
   const id = Number(loginId);
-  const agent = Number.isInteger(id) ? await agentRepository.findByLoginId(id) : null;
+  const agent = Number.isInteger(id)
+    ? await prisma.agent.findUnique({
+        where: { loginId: id },
+        include: { user: { select: { id: true } } },
+      })
+    : null;
   if (!agent) notFound();
 
   const config = await loadActiveConfig();
@@ -52,6 +57,8 @@ export default async function EditAgentPage({ params }: { params: Promise<{ logi
           tlName: agent.tlName,
           joinDate: agent.joinDate.toISOString().slice(0, 10),
           active: agent.active,
+          email: agent.email ?? "",
+          hasLogin: !!agent.user,
         }}
       />
     </main>

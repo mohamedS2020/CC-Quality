@@ -32,6 +32,7 @@ export default async function AgentsPage() {
       loginId: a.loginId,
       agentName: a.agentName,
       tlName: a.tlName,
+      email: a.email,
       joinDate: ymd(a.joinDate),
       status: standing?.status ?? null,
       tenureDays: standing?.tenureDays ?? null,

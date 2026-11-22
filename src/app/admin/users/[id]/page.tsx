@@ -52,7 +52,7 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
       <UserForm
         mode="edit"
         userId={user.id}
-        agents={agents.map((a) => ({ loginId: a.loginId, agentName: a.agentName }))}
+        agents={agents.map((a) => ({ loginId: a.loginId, agentName: a.agentName, email: a.email }))}
         initial={{
           email: user.email,
           name: user.name,

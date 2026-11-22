@@ -63,6 +63,9 @@ model Agent {
   tlName    String   @map("tl_name") // team leader
   joinDate  DateTime @map("join_date") @db.Date // hire date
   active    Boolean  @default(true) // soft-deactivation (FR-11)
+  // Where the agent's emails go (score, correction, coaching). The source of
+  // truth: an AGENT user's login email is copied from it and kept in sync.
+  email     String?  @unique
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
