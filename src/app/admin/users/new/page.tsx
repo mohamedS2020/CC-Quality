@@ -21,6 +21,7 @@ export default async function NewUserPage() {
   const agents = (await agentRepository.list({ activeOnly: true })).map((a) => ({
     loginId: a.loginId,
     agentName: a.agentName,
+    email: a.email,
   }));
 
   return (

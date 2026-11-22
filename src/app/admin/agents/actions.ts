@@ -11,6 +11,7 @@ export interface AgentFormInput {
   agentName: string;
   tlName: string;
   joinDate: string; // yyyy-mm-dd
+  email: string; // "" = none
 }
 
 async function guard(): Promise<string | null> {
@@ -36,6 +37,7 @@ export async function createAgentAction(
     agentName: input.agentName,
     tlName: input.tlName,
     joinDate: new Date(input.joinDate),
+    email: input.email,
   });
   if (!result.ok) return { ok: false, message: result.error };
 
@@ -55,10 +57,12 @@ export async function updateAgentAction(
     tlName: input.tlName,
     joinDate: new Date(input.joinDate),
     active: input.active,
+    email: input.email,
   });
   if (!result.ok) return { ok: false, message: result.error };
 
   revalidatePath("/admin/agents");
   revalidatePath(`/admin/agents/${loginId}`);
+  revalidatePath("/admin/users"); // a linked login's email follows the agent's
   return { ok: true, loginId: result.loginId };
 }

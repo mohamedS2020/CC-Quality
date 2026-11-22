@@ -2,18 +2,18 @@ import { Prisma, type UserRole } from "@prisma/client";
 import { hashPassword } from "@/lib/auth/password";
 import { validatePassword } from "@/lib/auth/policy";
 import { agentRepository, userRepository } from "@/lib/db/repositories";
+import { normalizeEmail } from "@/lib/email/address";
 
 /**
  * User-account management (FR-7). Wraps the repository with the account rules:
  * email normalization, password policy, and the AGENT⇄record link (FR-3).
  * Authorization (`users.manage`) is enforced by the server action that calls in.
+ *
+ * An AGENT user's login email is the linked agent's email — the agent record is
+ * the source of truth (and `updateAgent` keeps the two in sync afterwards).
  */
 
 export type UserMutationResult = { ok: true; id: number } | { ok: false; error: string };
-
-function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
-}
 
 function isUniqueViolation(error: unknown): boolean {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
@@ -27,14 +27,22 @@ function isUniqueViolation(error: unknown): boolean {
 async function resolveAgentLink(
   role: UserRole,
   agentLoginId: number | null | undefined,
-): Promise<{ ok: true; value: number | null } | { ok: false; error: string }> {
-  if (role !== "AGENT") return { ok: true, value: null };
+): Promise<
+  { ok: true; value: number | null; email: string | null } | { ok: false; error: string }
+> {
+  if (role !== "AGENT") return { ok: true, value: null, email: null };
   if (agentLoginId == null) {
     return { ok: false, error: "An Agent user must be linked to an agent record." };
   }
   const agent = await agentRepository.findByLoginId(agentLoginId);
   if (!agent) return { ok: false, error: `No agent with login id ${agentLoginId}.` };
-  return { ok: true, value: agentLoginId };
+  if (!agent.email) {
+    return {
+      ok: false,
+      error: `Add an email to agent ${agentLoginId} first (Agents → edit) — their login uses it.`,
+    };
+  }
+  return { ok: true, value: agentLoginId, email: agent.email };
 }
 
 export interface CreateUserInput {
@@ -46,8 +54,6 @@ export interface CreateUserInput {
 }
 
 export async function createUser(input: CreateUserInput): Promise<UserMutationResult> {
-  const email = normalizeEmail(input.email);
-  if (email === "") return { ok: false, error: "Email is required." };
   if (input.name.trim() === "") return { ok: false, error: "Name is required." };
 
   const pw = validatePassword(input.password);
@@ -55,6 +61,10 @@ export async function createUser(input: CreateUserInput): Promise<UserMutationRe
 
   const link = await resolveAgentLink(input.role, input.agentLoginId);
   if (!link.ok) return link;
+
+  // An Agent's login is the agent's email; whatever was typed is ignored.
+  const email = link.email ?? normalizeEmail(input.email);
+  if (email === "") return { ok: false, error: "Email is required." };
 
   if (await userRepository.findByEmail(email)) {
     return { ok: false, error: "A user with that email already exists." };
@@ -93,12 +103,21 @@ export async function updateUser(id: number, input: UpdateUserInput): Promise<Us
   const link = await resolveAgentLink(input.role, input.agentLoginId);
   if (!link.ok) return link;
 
+  // Linking to an agent moves the login onto the agent's email (it must match).
+  if (link.email && link.email !== existing.email) {
+    const other = await userRepository.findByEmail(link.email);
+    if (other && other.id !== id) {
+      return { ok: false, error: `Another user already signs in with ${link.email}.` };
+    }
+  }
+
   try {
     await userRepository.update(id, {
       name: input.name.trim(),
       role: input.role,
       active: input.active,
       agentLoginId: link.value,
+      ...(link.email ? { email: link.email } : {}),
     });
     return { ok: true, id };
   } catch (error) {

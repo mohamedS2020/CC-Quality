@@ -28,7 +28,7 @@ export function UserForm({
   mode: "create" | "edit";
   userId?: number;
   initial: UserFormInitial;
-  agents: { loginId: number; agentName: string }[];
+  agents: { loginId: number; agentName: string; email: string | null }[];
 }) {
   const router = useRouter();
   const [email, setEmail] = useState(initial.email);
@@ -43,10 +43,16 @@ export function UserForm({
   const [pending, startTransition] = useTransition();
 
   const needsAgent = role === "AGENT";
+  // An Agent's login email is the agent's email (set on the agent record).
+  const linkedAgent = needsAgent
+    ? agents.find((a) => String(a.loginId) === agentLoginId)
+    : undefined;
+  const agentMissingEmail = !!linkedAgent && !linkedAgent.email;
+  const shownEmail = linkedAgent ? (linkedAgent.email ?? "") : email;
   const canSubmit =
     name.trim() !== "" &&
-    (mode === "edit" || (email.trim() !== "" && password !== "")) &&
-    (!needsAgent || agentLoginId !== "");
+    (mode === "edit" || (shownEmail.trim() !== "" && password !== "")) &&
+    (!needsAgent || (agentLoginId !== "" && !agentMissingEmail));
 
   const submit = () => {
     setError(null);
@@ -78,10 +84,16 @@ export function UserForm({
           className="input"
           type="email"
           aria-label="email"
-          value={email}
-          disabled={mode === "edit"}
+          value={shownEmail}
+          disabled={mode === "edit" || needsAgent}
+          placeholder={needsAgent && !linkedAgent ? "Taken from the agent you pick" : undefined}
           onChange={(e) => setEmail(e.target.value)}
         />
+        {needsAgent && (
+          <span className="muted" style={{ fontSize: "0.8rem" }}>
+            An Agent signs in with the agent&apos;s email. Change it on the agent&apos;s page.
+          </span>
+        )}
       </label>
 
       <label className="field">
@@ -122,10 +134,15 @@ export function UserForm({
             <option value="">— select agent —</option>
             {agents.map((a) => (
               <option key={a.loginId} value={a.loginId}>
-                {a.agentName} ({a.loginId})
+                {a.agentName} ({a.loginId}){a.email ? "" : " — no email"}
               </option>
             ))}
           </select>
+          {agentMissingEmail && (
+            <span style={{ color: "var(--danger)", fontSize: "0.85rem" }} role="alert">
+              This agent has no email. Add one on the agent&apos;s page first.
+            </span>
+          )}
         </label>
       )}
 

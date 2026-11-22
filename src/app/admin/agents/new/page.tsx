@@ -27,7 +27,14 @@ export default async function NewAgentPage() {
       </h1>
       <AgentForm
         mode="create"
-        initial={{ loginId: null, agentName: "", tlName: "", joinDate: "", active: true }}
+        initial={{
+          loginId: null,
+          agentName: "",
+          tlName: "",
+          joinDate: "",
+          active: true,
+          email: "",
+        }}
       />
     </main>
   );

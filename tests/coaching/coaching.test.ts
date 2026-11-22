@@ -46,6 +46,12 @@ describe("buildCoachingEmail", () => {
     }
   });
 
+  it("leaves the site link out for an agent without a login", () => {
+    const noLink = buildCoachingEmail({ ...baseFor("Ann"), appUrl: null });
+    expect(noLink.html).not.toContain("href=");
+    expect(noLink.text).not.toContain("review the full scorecard");
+  });
+
   it("links to the site and escapes HTML", () => {
     expect(email.html).toContain('href="https://qa.example.com"');
     const evil = buildCoachingEmail({ ...baseFor("<b>x</b>") });

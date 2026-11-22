@@ -10,7 +10,10 @@ import { createAgent, updateAgent } from "@/lib/agents/manage";
 const LOGIN = 880001;
 const RANGE = { gte: 880000, lt: 880100 };
 
+const TAG = "@agentmail.test";
+
 async function cleanup() {
+  await prisma.user.deleteMany({ where: { email: { contains: TAG } } });
   await prisma.agent.deleteMany({ where: { loginId: RANGE } });
 }
 
@@ -80,5 +83,95 @@ describe("agent management", () => {
       active: true,
     });
     expect(missing.ok).toBe(false);
+  });
+
+  it("stores a normalised email, and rejects a bad or duplicate one", async () => {
+    const a = await createAgent({
+      loginId: 880010,
+      agentName: "Mail One",
+      tlName: "TL",
+      joinDate: new Date("2025-01-01"),
+      email: `  One${TAG} `,
+    });
+    expect(a.ok).toBe(true);
+    expect((await prisma.agent.findUniqueOrThrow({ where: { loginId: 880010 } })).email).toBe(
+      `one${TAG}`,
+    );
+
+    const bad = await createAgent({
+      loginId: 880011,
+      agentName: "Bad",
+      tlName: "TL",
+      joinDate: new Date("2025-01-01"),
+      email: "not-an-email",
+    });
+    expect(bad).toEqual({ ok: false, error: expect.stringContaining("not a valid email") });
+
+    const dup = await createAgent({
+      loginId: 880012,
+      agentName: "Dup",
+      tlName: "TL",
+      joinDate: new Date("2025-01-01"),
+      email: `one${TAG}`,
+    });
+    expect(dup).toEqual({ ok: false, error: expect.stringContaining("already uses") });
+  });
+
+  it("keeps the email when an update doesn't mention it, and clears it on empty", async () => {
+    const base = {
+      agentName: "Mail One",
+      tlName: "TL",
+      joinDate: new Date("2025-01-01"),
+      active: true,
+    };
+    expect((await updateAgent(880010, base)).ok).toBe(true);
+    expect((await prisma.agent.findUniqueOrThrow({ where: { loginId: 880010 } })).email).toBe(
+      `one${TAG}`,
+    );
+    expect((await updateAgent(880010, { ...base, email: "" })).ok).toBe(true);
+    expect((await prisma.agent.findUniqueOrThrow({ where: { loginId: 880010 } })).email).toBeNull();
+  });
+
+  it("moves a linked login's email with the agent's, and won't let it go blank", async () => {
+    await createAgent({
+      loginId: 880020,
+      agentName: "Linked",
+      tlName: "TL",
+      joinDate: new Date("2025-01-01"),
+      email: `linked${TAG}`,
+    });
+    const user = await prisma.user.create({
+      data: {
+        email: `linked${TAG}`,
+        passwordHash: "x",
+        name: "Linked",
+        role: "AGENT",
+        agentLoginId: 880020,
+      },
+    });
+    const base = {
+      agentName: "Linked",
+      tlName: "TL",
+      joinDate: new Date("2025-01-01"),
+      active: true,
+    };
+
+    expect((await updateAgent(880020, { ...base, email: `new-linked${TAG}` })).ok).toBe(true);
+    expect((await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).email).toBe(
+      `new-linked${TAG}`,
+    );
+
+    const blank = await updateAgent(880020, { ...base, email: "" });
+    expect(blank).toEqual({ ok: false, error: expect.stringContaining("can't be empty") });
+
+    // Someone else's login address can't be taken over.
+    await prisma.user.create({
+      data: { email: `admin${TAG}`, passwordHash: "x", name: "Admin", role: "ADMIN" },
+    });
+    const clash = await updateAgent(880020, { ...base, email: `admin${TAG}` });
+    expect(clash).toEqual({ ok: false, error: expect.stringContaining("already uses") });
+    expect((await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).email).toBe(
+      `new-linked${TAG}`,
+    );
   });
 });

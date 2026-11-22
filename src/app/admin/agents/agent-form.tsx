@@ -10,6 +10,9 @@ export interface AgentFormInitial {
   tlName: string;
   joinDate: string; // yyyy-mm-dd
   active: boolean;
+  email: string;
+  /** The agent has a login, whose email follows this one (so it can't be blank). */
+  hasLogin?: boolean;
 }
 
 export function AgentForm({
@@ -25,6 +28,7 @@ export function AgentForm({
   const [tlName, setTlName] = useState(initial.tlName);
   const [joinDate, setJoinDate] = useState(initial.joinDate);
   const [active, setActive] = useState(initial.active);
+  const [email, setEmail] = useState(initial.email);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -32,7 +36,8 @@ export function AgentForm({
     agentName.trim() !== "" &&
     tlName.trim() !== "" &&
     joinDate !== "" &&
-    (mode === "edit" || loginId !== "");
+    (mode === "edit" || loginId !== "") &&
+    (!initial.hasLogin || email.trim() !== "");
 
   const submit = () => {
     setError(null);
@@ -43,6 +48,7 @@ export function AgentForm({
           agentName,
           tlName,
           joinDate,
+          email,
         });
         if (res.ok) router.push("/admin/agents");
         else setError(res.message);
@@ -52,6 +58,7 @@ export function AgentForm({
           tlName,
           joinDate,
           active,
+          email,
         });
         if (res.ok) router.refresh();
         else setError(res.message);
@@ -99,6 +106,23 @@ export function AgentForm({
           value={joinDate}
           onChange={(e) => setJoinDate(e.target.value)}
         />
+      </label>
+
+      <label className="field">
+        <span>Email{initial.hasLogin ? " *" : ""}</span>
+        <input
+          className="input"
+          type="email"
+          aria-label="email"
+          placeholder="name@company.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <span className="muted" style={{ fontSize: "0.8rem" }}>
+          {initial.hasLogin
+            ? "Score, correction and coaching emails go here. This agent's login email changes with it."
+            : "Score, correction and coaching emails go here. Optional; a login account for this agent uses it."}
+        </span>
       </label>
 
       {mode === "edit" && (
